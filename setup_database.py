@@ -69,7 +69,6 @@ def run_setup(host, port, user, password, db_name):
         os.path.join('database', 'views.sql'),
         os.path.join('database', 'triggers.sql'),
         os.path.join('database', 'procedures.sql'),
-        os.path.join('database', 'sample_data.sql'),
     ]
 
     for rel_path in sql_files:

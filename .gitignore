@@ -1,5 +1,7 @@
 # Environment files and credentials
 .env
+db.properties
+*.mwb
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
