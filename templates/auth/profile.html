@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+
+{% block title %}User Profile{% endblock %}
+{% block page_heading %}My Campus Profile{% endblock %}
+{% block page_subheading %}Account information and personal booking overview{% endblock %}
+
+{% block content %}
+<div class="grid-2">
+  
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Account Details</div>
+      <span class="user-role-badge role-{{ user.role|lower }}">{{ user.role }}</span>
+    </div>
+    <div class="card-body">
+      <div style="display:flex; align-items:center; gap:20px; margin-bottom:24px;">
+        <div class="user-avatar" style="width:72px; height:72px; font-size:1.8rem;">
+          {{ user.name[0] }}
+        </div>
+        <div>
+          <h2 style="font-size:1.3rem;">{{ user.name }}</h2>
+          <p style="color:var(--text-secondary); font-size:0.9rem;">{{ user.email }}</p>
+          <span class="badge badge-available" style="margin-top:4px;">Status: {{ user.status }}</span>
+        </div>
+      </div>
+
+      <div style="border-top:1px solid var(--border-color); padding-top:18px;">
+        <div class="form-group">
+          <label class="form-label">Assigned Department</label>
+          <div style="font-weight:600; color:var(--text-primary);">
+            {{ user.department_name }} ({{ user.department_code }})
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Contact Phone</label>
+          <div style="font-weight:600; color:var(--text-primary);">
+            {{ user.phone or 'Not Provided' }}
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Member Since</label>
+          <div style="color:var(--text-secondary); font-size:0.88rem;">
+            {{ user.created_at.strftime('%d %B %Y, %I:%M %p') if user.created_at else 'N/A' }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">My Recent Reservations</div>
+      <a href="{{ url_for('bookings.index') }}" class="btn btn-secondary btn-sm">View All &rarr;</a>
+    </div>
+    <div class="card-body" style="padding:0;">
+      <div class="table-responsive">
+        <table class="custom-table">
+          <thead>
+            <tr>
+              <th>Resource</th>
+              <th>Venue</th>
+              <th>Date &amp; Slot</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for b in recent_bookings %}
+            <tr>
+              <td><strong>{{ b.resource_name }}</strong></td>
+              <td>{{ b.room_number or 'N/A' }}</td>
+              <td>
+                <div>{{ b.booking_date }}</div>
+                <small style="color:var(--text-muted);">{{ b.slot_name }}</small>
+              </td>
+              <td>
+                <span class="badge badge-{{ b.booking_status|lower }}">{{ b.booking_status }}</span>
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="4" style="text-align:center; padding:30px; color:var(--text-muted);">
+                No reservations found for your account yet.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

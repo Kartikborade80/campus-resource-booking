@@ -1,0 +1,244 @@
+{% extends 'base.html' %}
+
+{% block title %}Campus Resources{% endblock %}
+{% block page_heading %}Resources &amp; Equipment{% endblock %}
+{% block page_subheading %}Inventory of multimedia projectors, research hardware, and laboratory assets{% endblock %}
+
+{% block content %}
+
+<div class="filter-bar">
+  <form method="GET" action="{{ url_for('resources.index') }}" style="display:flex; flex-wrap:wrap; gap:12px; width:100%; align-items:center;">
+    <input type="text" name="search" class="form-control" placeholder="Search by name, code, keywords..." value="{{ search }}" style="flex:1; min-width:200px;">
+    
+    <select name="category_id" class="form-select" style="min-width:180px;">
+      <option value="">All Categories</option>
+      {% for c in categories %}
+      <option value="{{ c.category_id }}" {% if selected_category|string == c.category_id|string %}selected{% endif %}>
+        {{ c.category_name }}
+      </option>
+      {% endfor %}
+    </select>
+
+    <select name="status" class="form-select" style="min-width:140px;">
+      <option value="">All Statuses</option>
+      <option value="Available" {% if selected_status == 'Available' %}selected{% endif %}>Available</option>
+      <option value="Booked" {% if selected_status == 'Booked' %}selected{% endif %}>Booked</option>
+      <option value="Maintenance" {% if selected_status == 'Maintenance' %}selected{% endif %}>Maintenance</option>
+      <option value="Inactive" {% if selected_status == 'Inactive' %}selected{% endif %}>Inactive</option>
+    </select>
+
+    <button type="submit" class="btn btn-primary btn-sm">&#128269; Filter</button>
+    <a href="{{ url_for('resources.index') }}" class="btn btn-secondary btn-sm">Reset</a>
+
+    {% if current_user and current_user.role == 'Admin' %}
+    <button type="button" class="btn btn-success btn-sm" onclick="openModal('addResourceModal')" style="margin-left:auto;">
+      + Add New Resource
+    </button>
+    {% endif %}
+  </form>
+</div>
+
+
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">Inventory Records ({{ resources|length }} items)</div>
+  </div>
+  <div class="card-body" style="padding:0;">
+    <div class="table-responsive">
+      <table class="custom-table">
+        <thead>
+          <tr>
+            <th>Resource Code</th>
+            <th>Name &amp; Description</th>
+            <th>Category</th>
+            <th>Capacity</th>
+            <th>Location</th>
+            <th>Status</th>
+            <th>Total Bookings</th>
+            {% if current_user and current_user.role == 'Admin' %}
+            <th>Actions</th>
+            {% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in resources %}
+          <tr>
+            <td><code>{{ r.resource_code }}</code></td>
+            <td>
+              <div style="font-weight:600;">{{ r.resource_name }}</div>
+              <small style="color:var(--text-muted);">{{ r.description or 'No description provided' }}</small>
+            </td>
+            <td><span class="badge" style="background:#e0e7ff; color:#3730a3;">{{ r.category_name }}</span></td>
+            <td>{{ r.capacity }} unit(s)</td>
+            <td>&#128205; {{ r.location }}</td>
+            <td>
+              <span class="badge badge-{{ r.status|lower }}">{{ r.status }}</span>
+            </td>
+            <td><strong>{{ r.total_bookings }}</strong></td>
+            {% if current_user and current_user.role == 'Admin' %}
+            <td>
+              <div style="display:flex; gap:6px;">
+                <button type="button" class="btn btn-secondary btn-sm" 
+                  onclick="editResource({{ r.resource_id }}, '{{ r.resource_name|replace("'", "\\'") }}', '{{ r.resource_code }}', {{ r.category_id }}, '{{ (r.description or '')|replace("'", "\\'") }}', {{ r.capacity }}, '{{ r.location|replace("'", "\\'") }}', '{{ r.status }}', '{{ r.purchase_date or '' }}')">
+                  Edit
+                </button>
+                <form method="POST" action="{{ url_for('resources.delete', resource_id=r.resource_id) }}" onsubmit="return confirm('Are you sure you want to remove or deactivate this resource?');" style="display:inline;">
+                  <button type="submit" class="btn btn-danger btn-sm">&#128465;</button>
+                </form>
+              </div>
+            </td>
+            {% endif %}
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="8" style="text-align:center; padding:32px; color:var(--text-muted);">
+              No resources match your search criteria.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal" id="addResourceModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Add New Campus Resource</h3>
+      <button type="button" class="modal-close" onclick="closeModal('addResourceModal')">&times;</button>
+    </div>
+    <form method="POST" action="{{ url_for('resources.create') }}">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Category</label>
+          <select name="category_id" class="form-select" required style="width:100%;">
+            {% for c in categories %}
+            <option value="{{ c.category_id }}">{{ c.category_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Resource Name</label>
+            <input type="text" name="resource_name" class="form-control" placeholder="e.g. Sony 4K Camcorder" required style="width:100%;">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Resource Code (Unique)</label>
+            <input type="text" name="resource_code" class="form-control" placeholder="e.g. CAM-SNY-02" required style="width:100%;">
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Capacity (Units/Seats)</label>
+            <input type="number" name="capacity" class="form-control" value="1" min="1" required style="width:100%;">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Initial Status</label>
+            <select name="status" class="form-select" style="width:100%;">
+              <option value="Available">Available</option>
+              <option value="Maintenance">Maintenance</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Location</label>
+          <input type="text" name="location" class="form-control" placeholder="e.g. Tech Park Lab 3" required style="width:100%;">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Purchase Date</label>
+          <input type="date" name="purchase_date" class="form-control" style="width:100%;">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description / Specifications</label>
+          <textarea name="description" class="form-control" rows="3" placeholder="Technical specifications, model info..." style="width:100%;"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('addResourceModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Resource</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<div class="modal" id="editResourceModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Edit Resource Details</h3>
+      <button type="button" class="modal-close" onclick="closeModal('editResourceModal')">&times;</button>
+    </div>
+    <form method="POST" id="editResourceForm">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Category</label>
+          <select name="category_id" id="editCategoryId" class="form-select" required style="width:100%;">
+            {% for c in categories %}
+            <option value="{{ c.category_id }}">{{ c.category_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Resource Name</label>
+            <input type="text" name="resource_name" id="editResourceName" class="form-control" required style="width:100%;">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Resource Code</label>
+            <input type="text" name="resource_code" id="editResourceCode" class="form-control" required style="width:100%;">
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Capacity</label>
+            <input type="number" name="capacity" id="editCapacity" class="form-control" min="1" required style="width:100%;">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <select name="status" id="editStatus" class="form-select" style="width:100%;">
+              <option value="Available">Available</option>
+              <option value="Booked">Booked</option>
+              <option value="Maintenance">Maintenance</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Location</label>
+          <input type="text" name="location" id="editLocation" class="form-control" required style="width:100%;">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Purchase Date</label>
+          <input type="date" name="purchase_date" id="editPurchaseDate" class="form-control" style="width:100%;">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <textarea name="description" id="editDescription" class="form-control" rows="3" style="width:100%;"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('editResourceModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Update Resource</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function editResource(id, name, code, categoryId, desc, cap, loc, status, pDate) {
+  document.getElementById('editResourceForm').action = '/resources/update/' + id;
+  document.getElementById('editResourceName').value = name;
+  document.getElementById('editResourceCode').value = code;
+  document.getElementById('editCategoryId').value = categoryId;
+  document.getElementById('editDescription').value = desc;
+  document.getElementById('editCapacity').value = cap;
+  document.getElementById('editLocation').value = loc;
+  document.getElementById('editStatus').value = status;
+  document.getElementById('editPurchaseDate').value = pDate;
+  openModal('editResourceModal');
+}
+</script>
+{% endblock %}

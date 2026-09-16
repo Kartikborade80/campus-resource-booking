@@ -1,0 +1,145 @@
+{% extends 'base.html' %}
+
+{% block title %}Resource Feedback &amp; Ratings{% endblock %}
+{% block page_heading %}User Feedback &amp; Quality Ratings{% endblock %}
+{% block page_subheading %}Student &amp; faculty evaluations on equipment condition, room facilities, and acoustics{% endblock %}
+
+{% block content %}
+
+<div class="card" style="background: linear-gradient(135deg, #312e81, #4f46e5); color:#fff; border:none;">
+  <div class="card-body" style="padding: 32px;">
+    <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:24px;">
+      <div>
+        <span style="font-size:0.8rem; text-transform:uppercase; letter-spacing:0.08em; color:#c7d2fe; font-weight:700;">Overall Campus Satisfaction</span>
+        <div style="display:flex; align-items:baseline; gap:16px; margin-top:8px;">
+          <span style="font-size:3rem; font-weight:800; font-family:'Outfit',sans-serif; line-height:1;">
+            {{ "%.1f"|format(stats.avg_rating) }}
+          </span>
+          <div>
+            <div class="star-rating" style="font-size:1.4rem;">
+              {% for i in range(1, 6) %}
+                {% if i <= stats.avg_rating|round(0, 'floor') %}&#9733;{% else %}&#9734;{% endif %}
+              {% endfor %}
+            </div>
+            <div style="font-size:0.85rem; color:#e0e7ff;">Based on {{ stats.total_reviews }} verified reviews</div>
+          </div>
+        </div>
+      </div>
+
+      
+      <div style="display:flex; gap:12px; flex-wrap:wrap;">
+        <div style="background:rgba(255,255,255,0.1); padding:8px 16px; border-radius:var(--radius-md); text-align:center;">
+          <div style="font-size:1.1rem; font-weight:700;">{{ stats.five_star }}</div>
+          <small style="color:#c7d2fe;">5 Stars</small>
+        </div>
+        <div style="background:rgba(255,255,255,0.1); padding:8px 16px; border-radius:var(--radius-md); text-align:center;">
+          <div style="font-size:1.1rem; font-weight:700;">{{ stats.four_star }}</div>
+          <small style="color:#c7d2fe;">4 Stars</small>
+        </div>
+        <div style="background:rgba(255,255,255,0.1); padding:8px 16px; border-radius:var(--radius-md); text-align:center;">
+          <div style="font-size:1.1rem; font-weight:700;">{{ stats.three_star }}</div>
+          <small style="color:#c7d2fe;">3 Stars</small>
+        </div>
+        <div style="background:rgba(255,255,255,0.1); padding:8px 16px; border-radius:var(--radius-md); text-align:center;">
+          <div style="font-size:1.1rem; font-weight:700;">{{ stats.two_star + stats.one_star }}</div>
+          <small style="color:#c7d2fe;">&le; 2 Stars</small>
+        </div>
+      </div>
+
+      
+      {% if eligible_bookings %}
+      <button type="button" class="btn btn-warning" onclick="openModal('submitFeedbackModal')">
+        &#9733; Submit Feedback for Completed Event
+      </button>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">Verified User Reviews ({{ feedback_list|length }})</div>
+  </div>
+  <div class="card-body">
+    <div style="display:flex; flex-direction:column; gap:16px;">
+      {% for f in feedback_list %}
+      <div style="padding:18px; border:1px solid var(--border-color); border-radius:var(--radius-md); background:#fff;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+          <div>
+            <div style="font-weight:700; font-size:0.95rem; color:var(--text-primary);">{{ f.user_name }}</div>
+            <div style="font-size:0.78rem; color:var(--text-secondary);">
+              {{ f.department_name }} &bull; <span class="badge role-{{ f.user_role|lower }}">{{ f.user_role }}</span>
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div class="star-rating">
+              {% for i in range(1, 6) %}
+                {% if i <= f.rating %}&#9733;{% else %}&#9734;{% endif %}
+              {% endfor %}
+            </div>
+            <small style="color:var(--text-muted); font-size:0.75rem;">{{ f.submitted_at.strftime('%d %b %Y') if f.submitted_at else '' }}</small>
+          </div>
+        </div>
+
+        <div style="font-size:0.88rem; color:var(--text-primary); margin:8px 0;">
+          &ldquo;{{ f.comments or 'No written feedback provided.' }}&rdquo;
+        </div>
+
+        <div style="font-size:0.78rem; color:var(--text-muted); background:#f8fafc; padding:6px 10px; border-radius:var(--radius-sm); display:inline-block;">
+          Asset: <strong>{{ f.resource_name }}</strong> {% if f.room_number %}in Room <strong>{{ f.room_number }}</strong>{% endif %} (Booking #{{ f.booking_id }} &bull; <em>{{ f.purpose }}</em>)
+        </div>
+      </div>
+      {% else %}
+      <p style="text-align:center; padding:32px; color:var(--text-muted);">No feedback records found yet.</p>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+
+{% if eligible_bookings %}
+<div class="modal" id="submitFeedbackModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Submit Resource Feedback</h3>
+      <button type="button" class="modal-close" onclick="closeModal('submitFeedbackModal')">&times;</button>
+    </div>
+    <form method="POST" action="{{ url_for('feedback.submit') }}">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Select Completed Reservation</label>
+          <select name="booking_id" class="form-select" required style="width:100%;">
+            {% for eb in eligible_bookings %}
+            <option value="{{ eb.booking_id }}">
+              #{{ eb.booking_id }}: {{ eb.resource_name }} ({{ eb.booking_date }}) - {{ eb.purpose }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Rating (1 to 5 Stars) *</label>
+          <select name="rating" class="form-select" required style="width:100%;">
+            <option value="5">&#9733;&#9733;&#9733;&#9733;&#9733; 5 Stars - Excellent Quality &amp; Operation</option>
+            <option value="4">&#9733;&#9733;&#9733;&#9733;&#9734; 4 Stars - Very Good</option>
+            <option value="3">&#9733;&#9733;&#9733;&#9734;&#9734; 3 Stars - Average / Minor issues</option>
+            <option value="2">&#9733;&#9733;&#9734;&#9734;&#9734; 2 Stars - Subpar performance</option>
+            <option value="1">&#9733;&#9734;&#9734;&#9734;&#9734; 1 Star - Unacceptable / Defective</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Detailed Comments &amp; Review</label>
+          <textarea name="comments" class="form-control" rows="3" placeholder="Describe asset condition, audio clarity, room cleanliness..." style="width:100%;"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('submitFeedbackModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Submit Review</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

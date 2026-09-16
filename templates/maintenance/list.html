@@ -1,0 +1,245 @@
+{% extends 'base.html' %}
+
+{% block title %}Asset Maintenance{% endblock %}
+{% block page_heading %}Maintenance &amp; Repairs Hub{% endblock %}
+{% block page_subheading %}Track downtime, service schedules, repair logs, and cost per campus asset{% endblock %}
+
+{% block content %}
+
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-icon-wrapper stat-indigo">&#128295;</div>
+    <div class="stat-info">
+      <div class="stat-label">Total Tickets</div>
+      <div class="stat-value">{{ stats.total_tickets or 0 }}</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon-wrapper stat-amber">&#9888;</div>
+    <div class="stat-info">
+      <div class="stat-label">Active Issues</div>
+      <div class="stat-value">{{ stats.active_tickets or 0 }}</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon-wrapper stat-emerald">&#10004;</div>
+    <div class="stat-info">
+      <div class="stat-label">Resolved Issues</div>
+      <div class="stat-value">{{ stats.completed_tickets or 0 }}</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon-wrapper stat-rose">&#8377;</div>
+    <div class="stat-info">
+      <div class="stat-label">Repair Cost</div>
+      <div class="stat-value">&#8377;{{ "%.2f"|format(stats.total_cost or 0) }}</div>
+    </div>
+  </div>
+</div>
+
+
+<div class="filter-bar">
+  <form method="GET" action="{{ url_for('maintenance.index') }}" style="display:flex; flex-wrap:wrap; gap:12px; width:100%; align-items:center;">
+    <select name="status" class="form-select" style="min-width:180px;">
+      <option value="">All Statuses</option>
+      <option value="Reported" {% if selected_status == 'Reported' %}selected{% endif %}>Reported</option>
+      <option value="In Progress" {% if selected_status == 'In Progress' %}selected{% endif %}>In Progress</option>
+      <option value="Completed" {% if selected_status == 'Completed' %}selected{% endif %}>Completed</option>
+      <option value="Closed" {% if selected_status == 'Closed' %}selected{% endif %}>Closed</option>
+    </select>
+    <button type="submit" class="btn btn-primary btn-sm">&#128269; Filter</button>
+    <a href="{{ url_for('maintenance.index') }}" class="btn btn-secondary btn-sm">Reset</a>
+
+    <button type="button" class="btn btn-danger btn-sm" onclick="openModal('reportIssueModal')" style="margin-left:auto;">
+      + Report Issue / Request Service
+    </button>
+  </form>
+</div>
+
+
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">Maintenance Tickets ({{ records|length }} tickets)</div>
+  </div>
+  <div class="card-body" style="padding:0;">
+    <div class="table-responsive">
+      <table class="custom-table">
+        <thead>
+          <tr>
+            <th>Ticket #</th>
+            <th>Impacted Asset</th>
+            <th>Issue Title &amp; Description</th>
+            <th>Reported Date</th>
+            <th>Resolved Date</th>
+            <th>Reported By</th>
+            <th>Cost (&#8377;)</th>
+            <th>Status</th>
+            {% if current_user and current_user.role in ('Admin', 'Staff') %}
+            <th>Actions</th>
+            {% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in records %}
+          <tr>
+            <td><code>#M{{ m.maintenance_id }}</code></td>
+            <td>
+              {% if m.resource_name %}
+                <strong style="color:var(--primary);">&#128187; {{ m.resource_name }}</strong>
+                <div><small style="color:var(--text-muted);">{{ m.resource_code }}</small></div>
+              {% elif m.room_number %}
+                <strong style="color:var(--secondary);">&#127979; Room {{ m.room_number }}</strong>
+                <div><small style="color:var(--text-muted);">{{ m.building_name }}</small></div>
+              {% else %}
+                <span style="color:var(--text-muted);">General Facility</span>
+              {% endif %}
+            </td>
+            <td style="max-width:250px;">
+              <div style="font-weight:600;">{{ m.issue_title }}</div>
+              <small style="color:var(--text-secondary);">{{ m.issue_description }}</small>
+            </td>
+            <td>{{ m.maintenance_date }}</td>
+            <td>{{ m.completion_date or 'In Service' }}</td>
+            <td>
+              {{ m.reported_by_name }}
+              <div><small class="badge role-{{ m.reporter_role|lower }}" style="padding:1px 6px;">{{ m.reporter_role }}</small></div>
+            </td>
+            <td><strong>&#8377;{{ "%.2f"|format(m.cost) }}</strong></td>
+            <td>
+              <span class="badge badge-{{ 'completed' if m.maintenance_status in ('Completed', 'Closed') else ('maintenance' if m.maintenance_status == 'In Progress' else 'pending') }}">
+                {{ m.maintenance_status }}
+              </span>
+            </td>
+            {% if current_user and current_user.role in ('Admin', 'Staff') %}
+            <td>
+              <div style="display:flex; gap:6px;">
+                <button type="button" class="btn btn-secondary btn-sm"
+                  onclick="editMaintenance({{ m.maintenance_id }}, '{{ m.maintenance_status }}', '{{ m.cost }}', '{{ m.completion_date or '' }}')">
+                  Update
+                </button>
+                {% if m.maintenance_status not in ('Closed',) %}
+                <form method="POST" action="{{ url_for('maintenance.close', maintenance_id=m.maintenance_id) }}" style="display:inline;">
+                  <button type="submit" class="btn btn-success btn-sm" title="Mark Closed">&#10004;</button>
+                </form>
+                {% endif %}
+              </div>
+            </td>
+            {% endif %}
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="9" style="text-align:center; padding:32px; color:var(--text-muted);">
+              No maintenance tickets logged.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal" id="reportIssueModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Log Maintenance Issue</h3>
+      <button type="button" class="modal-close" onclick="closeModal('reportIssueModal')">&times;</button>
+    </div>
+    <form method="POST" action="{{ url_for('maintenance.create') }}">
+      <div class="modal-body">
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Impacted Resource</label>
+            <select name="resource_id" class="form-select" style="width:100%;">
+              <option value="">-- None / Select Resource --</option>
+              {% for r in resources %}
+              <option value="{{ r.resource_id }}">{{ r.resource_name }} ({{ r.resource_code }})</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Impacted Room</label>
+            <select name="room_id" class="form-select" style="width:100%;">
+              <option value="">-- None / Select Room --</option>
+              {% for rm in rooms %}
+              <option value="{{ rm.room_id }}">{{ rm.room_number }} - {{ rm.building_name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Issue Headline *</label>
+          <input type="text" name="issue_title" class="form-control" placeholder="e.g. Projector lamp burnt out, Audio humming noise" required style="width:100%;">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Detailed Symptoms / Fault Description *</label>
+          <textarea name="issue_description" class="form-control" rows="3" required placeholder="Describe observed malfunction, error codes, or physical damage..." style="width:100%;"></textarea>
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Report Date</label>
+            <input type="date" name="maintenance_date" class="form-control" value="{{ today }}" style="width:100%;">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Estimated Initial Cost (&#8377;)</label>
+            <input type="number" step="0.01" name="cost" class="form-control" value="0.00" style="width:100%;">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('reportIssueModal')">Cancel</button>
+        <button type="submit" class="btn btn-danger">File Maintenance Request</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<div class="modal" id="updateMaintenanceModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Update Maintenance Ticket</h3>
+      <button type="button" class="modal-close" onclick="closeModal('updateMaintenanceModal')">&times;</button>
+    </div>
+    <form method="POST" id="updateMaintenanceForm">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Maintenance Status</label>
+          <select name="maintenance_status" id="editMaintStatus" class="form-select" required style="width:100%;">
+            <option value="Reported">Reported</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Completed">Completed</option>
+            <option value="Closed">Closed</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Actual Incurred Cost (&#8377;)</label>
+          <input type="number" step="0.01" name="cost" id="editMaintCost" class="form-control" required style="width:100%;">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Completion Date</label>
+          <input type="date" name="completion_date" id="editMaintCompletionDate" class="form-control" style="width:100%;">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('updateMaintenanceModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Update Status</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function editMaintenance(id, status, cost, compDate) {
+  document.getElementById('updateMaintenanceForm').action = '/maintenance/update/' + id;
+  document.getElementById('editMaintStatus').value = status;
+  document.getElementById('editMaintCost').value = cost;
+  document.getElementById('editMaintCompletionDate').value = compDate;
+  openModal('updateMaintenanceModal');
+}
+</script>
+{% endblock %}

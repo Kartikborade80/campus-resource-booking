@@ -1,0 +1,429 @@
+{% extends 'base.html' %}
+
+{% block title %}Academic Reports{% endblock %}
+{% block page_heading %}Campus Utilization &amp; Analytical Reports{% endblock %}
+{% block page_subheading %}Comprehensive DBMS queries, multi-table joins &amp; analytical aggregates{% endblock %}
+
+{% block content %}
+
+<div class="filter-bar" style="overflow-x:auto;">
+  <div style="display:flex; gap:8px; flex-wrap:wrap; width:100%;">
+    <a href="{{ url_for('reports.index', type='most_booked') }}" class="btn btn-sm {% if report_type == 'most_booked' %}btn-primary{% else %}btn-secondary{% endif %}">
+      1. Top Resources
+    </a>
+    <a href="{{ url_for('reports.index', type='dept_usage') }}" class="btn btn-sm {% if report_type == 'dept_usage' %}btn-primary{% else %}btn-secondary{% endif %}">
+      2. Dept. Usage
+    </a>
+    <a href="{{ url_for('reports.index', type='monthly') }}" class="btn btn-sm {% if report_type == 'monthly' %}btn-primary{% else %}btn-secondary{% endif %}">
+      3. Booking Trends
+    </a>
+    <a href="{{ url_for('reports.index', type='available') }}" class="btn btn-sm {% if report_type == 'available' %}btn-primary{% else %}btn-secondary{% endif %}">
+      4. Available Resources
+    </a>
+    <a href="{{ url_for('reports.index', type='maintenance') }}" class="btn btn-sm {% if report_type == 'maintenance' %}btn-primary{% else %}btn-secondary{% endif %}">
+      5. Maintenance Log
+    </a>
+    <a href="{{ url_for('reports.index', type='cancelled') }}" class="btn btn-sm {% if report_type == 'cancelled' %}btn-primary{% else %}btn-secondary{% endif %}">
+      6. Cancelled/Rejected
+    </a>
+    <a href="{{ url_for('reports.index', type='room_util') }}" class="btn btn-sm {% if report_type == 'room_util' %}btn-primary{% else %}btn-secondary{% endif %}">
+      7. Room Utilization
+    </a>
+    <a href="{{ url_for('reports.index', type='user_hist') }}" class="btn btn-sm {% if report_type == 'user_hist' %}btn-primary{% else %}btn-secondary{% endif %}">
+      8. User Activity
+    </a>
+  </div>
+</div>
+
+
+
+
+{% if report_type == 'most_booked' %}
+<div class="grid-2" style="margin-bottom:24px;">
+  <div class="card">
+    <div class="card-header"><div class="card-title">&#128202; Top Resources Chart</div></div>
+    <div class="card-body" style="height:280px; position:relative;">
+      <canvas id="reportResourceChart"></canvas>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header"><div class="card-title">&#128161; Academic Query Rationale</div></div>
+    <div class="card-body">
+      <p style="font-size:0.88rem; color:var(--text-secondary); margin-bottom:12px;">
+        This report demonstrates an <strong>INNER JOIN</strong> between <code>resources</code> and <code>resource_categories</code> with a <strong>LEFT JOIN</strong> onto <code>bookings</code>, combined with <strong>GROUP BY</strong> and conditional aggregate functions:
+      </p>
+      <pre style="background:#0f172a; color:#f8fafc; padding:12px; border-radius:8px; font-size:0.75rem; overflow-x:auto;">
+SELECT r.resource_name, c.category_name,
+       COUNT(b.booking_id) AS total_bookings,
+       SUM(CASE WHEN b.booking_status='Approved' THEN 1 ELSE 0 END) AS approved_count
+FROM resources r
+JOIN resource_categories c ON r.category_id = c.category_id
+LEFT JOIN bookings b ON r.resource_id = b.resource_id
+GROUP BY r.resource_id, r.resource_name, c.category_name
+ORDER BY total_bookings DESC;</pre>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="card-title">Report 1: Most Booked Resources Table</div></div>
+  <div class="card-body" style="padding:0;">
+    <div class="table-responsive">
+      <table class="custom-table">
+        <thead>
+          <tr>
+            <th>Resource Code</th>
+            <th>Resource Name</th>
+            <th>Category</th>
+            <th>Location</th>
+            <th>Total Reservations</th>
+            <th>Approved</th>
+            <th>Completed</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in most_booked %}
+          <tr>
+            <td><code>{{ r.resource_code }}</code></td>
+            <td><strong>{{ r.resource_name }}</strong></td>
+            <td><span class="badge" style="background:#e0e7ff; color:#3730a3;">{{ r.category_name }}</span></td>
+            <td>{{ r.location }}</td>
+            <td><strong style="color:var(--primary); font-size:1rem;">{{ r.total_bookings }}</strong></td>
+            <td><span class="badge badge-approved">{{ r.approved_count }}</span></td>
+            <td><span class="badge badge-completed">{{ r.completed_count }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+
+
+
+{% if report_type == 'dept_usage' %}
+<div class="grid-2" style="margin-bottom:24px;">
+  <div class="card">
+    <div class="card-header"><div class="card-title">&#127963; Departmental Demand Distribution</div></div>
+    <div class="card-body" style="height:280px; position:relative;">
+      <canvas id="reportDeptChart"></canvas>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header"><div class="card-title">&#128269; Query Insights</div></div>
+    <div class="card-body">
+      <p style="font-size:0.88rem; color:var(--text-secondary); margin-bottom:12px;">
+        Demonstrates a multi-table aggregate traversing <code>departments &rarr; users &rarr; bookings</code> using <strong>LEFT JOIN</strong> so that departments with zero reservations are still accurately accounted for.
+      </p>
+      <div style="padding:14px; background:#f8fafc; border:1px solid var(--border-color); border-radius:8px; font-size:0.85rem;">
+        <strong>Total Registered Departments:</strong> {{ dept_usage|length }}<br>
+        <strong>Leading Department:</strong> {{ dept_usage[0].department_name if dept_usage else 'N/A' }}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="card-title">Report 2: Department Resource Usage Breakdown</div></div>
+  <div class="card-body" style="padding:0;">
+    <div class="table-responsive">
+      <table class="custom-table">
+        <thead>
+          <tr>
+            <th>Dept Code</th>
+            <th>Department Name</th>
+            <th>Registered Users</th>
+            <th>Total Bookings</th>
+            <th>Confirmed Bookings</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in dept_usage %}
+          <tr>
+            <td><code>{{ d.department_code }}</code></td>
+            <td><strong>{{ d.department_name }}</strong></td>
+            <td>{{ d.registered_users }} users</td>
+            <td><strong style="color:var(--primary); font-size:1rem;">{{ d.total_bookings }}</strong></td>
+            <td><span class="badge badge-approved">{{ d.successful_bookings }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+
+
+
+{% if report_type == 'monthly' %}
+<div class="card">
+  <div class="card-header"><div class="card-title">Report 3: Monthly Booking Statistics &amp; Lifecycle Trajectory</div></div>
+  <div class="card-body" style="padding:0;">
+    <div class="table-responsive">
+      <table class="custom-table">
+        <thead>
+          <tr>
+            <th>Period</th>
+            <th>Total Bookings</th>
+            <th>Completed</th>
+            <th>Approved</th>
+            <th>Pending</th>
+            <th>Cancelled / Rejected</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in monthly_stats %}
+          <tr>
+            <td><strong>{{ m.month_name }}</strong> (<code>{{ m.ym }}</code>)</td>
+            <td><strong style="color:var(--primary); font-size:1rem;">{{ m.total_bookings }}</strong></td>
+            <td><span class="badge badge-completed">{{ m.completed }}</span></td>
+            <td><span class="badge badge-approved">{{ m.approved }}</span></td>
+            <td><span class="badge badge-pending">{{ m.pending }}</span></td>
+            <td><span class="badge badge-cancelled">{{ m.cancelled_rejected }}</span></td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" style="text-align:center; padding:24px;">No monthly booking data found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+
+
+
+{% if report_type == 'available' %}
+<div class="card">
+  <div class="card-header"><div class="card-title">Report 4: Immediate Available Resources (Ready for Booking)</div></div>
+  <div class="card-body" style="padding:0;">
+    <div class="table-responsive">
+      <table class="custom-table">
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Resource Name</th>
+            <th>Category</th>
+            <th>Location</th>
+            <th>Capacity</th>
+            <th>Purchase Date</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in available_resources %}
+          <tr>
+            <td><code>{{ r.resource_code }}</code></td>
+            <td><strong>{{ r.resource_name }}</strong></td>
+            <td><span class="badge" style="background:#e0e7ff; color:#3730a3;">{{ r.category_name }}</span></td>
+            <td>{{ r.location }}</td>
+            <td>{{ r.capacity }} unit(s)</td>
+            <td>{{ r.purchase_date or 'N/A' }}</td>
+            <td><span class="badge badge-available">Available</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+
+
+
+{% if report_type == 'maintenance' %}
+<div class="card">
+  <div class="card-header"><div class="card-title">Report 5: Campus Asset Maintenance History &amp; Costs</div></div>
+  <div class="card-body" style="padding:0;">
+    <div class="table-responsive">
+      <table class="custom-table">
+        <thead>
+          <tr>
+            <th>Ticket #</th>
+            <th>Asset</th>
+            <th>Issue Title</th>
+            <th>Reported Date</th>
+            <th>Resolved Date</th>
+            <th>Reported By</th>
+            <th>Cost (&#8377;)</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in maintenance_history %}
+          <tr>
+            <td><code>#M{{ m.maintenance_id }}</code></td>
+            <td><strong>{{ m.asset_name }}</strong></td>
+            <td>{{ m.issue_title }}</td>
+            <td>{{ m.maintenance_date }}</td>
+            <td>{{ m.completion_date or 'Pending' }}</td>
+            <td>{{ m.reported_by_name }}</td>
+            <td><strong>&#8377;{{ "%.2f"|format(m.cost) }}</strong></td>
+            <td><span class="badge badge-{{ 'completed' if m.maintenance_status in ('Completed', 'Closed') else 'maintenance' }}">{{ m.maintenance_status }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+
+
+
+{% if report_type == 'cancelled' %}
+<div class="card">
+  <div class="card-header"><div class="card-title">Report 6: Cancelled &amp; Rejected Booking Audit</div></div>
+  <div class="card-body" style="padding:0;">
+    <div class="table-responsive">
+      <table class="custom-table">
+        <thead>
+          <tr>
+            <th>Booking #</th>
+            <th>Applicant</th>
+            <th>Resource</th>
+            <th>Room</th>
+            <th>Schedule</th>
+            <th>Purpose</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for b in cancelled_bookings %}
+          <tr>
+            <td><code>#{{ b.booking_id }}</code></td>
+            <td>
+              <strong>{{ b.booked_by }}</strong>
+              <div><small style="color:var(--text-muted);">{{ b.department_name }}</small></div>
+            </td>
+            <td>{{ b.resource_name }}</td>
+            <td>{{ b.room_number or 'None' }}</td>
+            <td>{{ b.booking_date }} &bull; {{ b.slot_name }}</td>
+            <td style="max-width:240px;"><small>{{ b.purpose }}</small></td>
+            <td><span class="badge badge-{{ b.booking_status|lower }}">{{ b.booking_status }}</span></td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7" style="text-align:center; padding:24px;">No cancelled or rejected bookings found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+
+
+
+{% if report_type == 'room_util' %}
+<div class="grid-2" style="margin-bottom:24px;">
+  <div class="card">
+    <div class="card-header"><div class="card-title">&#127979; Room Allocation Frequency</div></div>
+    <div class="card-body" style="height:280px; position:relative;">
+      <canvas id="reportRoomChart"></canvas>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header"><div class="card-title">&#128214; VIEW Implementation Details</div></div>
+    <div class="card-body">
+      <p style="font-size:0.88rem; color:var(--text-secondary); margin-bottom:12px;">
+        Populated directly from the database VIEW: <code>room_utilization_view</code>. Calculates room utilization ratios and confirmed reservations using SQL aggregations:
+      </p>
+      <pre style="background:#0f172a; color:#f8fafc; padding:12px; border-radius:8px; font-size:0.75rem; overflow-x:auto;">
+SELECT rm.room_number, rm.building_name, rm.room_type,
+       COUNT(b.booking_id) AS total_bookings,
+       SUM(CASE WHEN b.booking_status IN ('Approved', 'Completed')
+                THEN 1 ELSE 0 END) AS confirmed_bookings
+FROM rooms rm
+LEFT JOIN bookings b ON rm.room_id = b.room_id
+GROUP BY rm.room_id, rm.room_number, rm.building_name, rm.room_type;</pre>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="card-title">Report 7: Room Utilization Table</div></div>
+  <div class="card-body" style="padding:0;">
+    <div class="table-responsive">
+      <table class="custom-table">
+        <thead>
+          <tr>
+            <th>Room Number</th>
+            <th>Building</th>
+            <th>Room Type</th>
+            <th>Capacity</th>
+            <th>Total Reservations</th>
+            <th>Confirmed</th>
+            <th>Pending</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in room_utilization %}
+          <tr>
+            <td><strong style="color:var(--primary);">{{ r.room_number }}</strong></td>
+            <td>{{ r.building_name }}</td>
+            <td><span class="badge" style="background:#dbeafe; color:#1e40af;">{{ r.room_type }}</span></td>
+            <td>{{ r.capacity }} seats</td>
+            <td><strong style="color:var(--primary); font-size:1rem;">{{ r.total_bookings }}</strong></td>
+            <td><span class="badge badge-approved">{{ r.confirmed_bookings }}</span></td>
+            <td><span class="badge badge-pending">{{ r.pending_bookings }}</span></td>
+            <td><span class="badge badge-{{ r.room_status|lower }}">{{ r.room_status }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+
+
+
+{% if report_type == 'user_hist' %}
+<div class="card">
+  <div class="card-header"><div class="card-title">Report 8: User Booking Frequency &amp; Activity Audit</div></div>
+  <div class="card-body" style="padding:0;">
+    <div class="table-responsive">
+      <table class="custom-table">
+        <thead>
+          <tr>
+            <th>User ID</th>
+            <th>Full Name</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Department</th>
+            <th>Total Bookings</th>
+            <th>Confirmed</th>
+            <th>Last Active Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in user_history %}
+          <tr>
+            <td><code>#U{{ u.user_id }}</code></td>
+            <td><strong>{{ u.name }}</strong></td>
+            <td>{{ u.email }}</td>
+            <td><span class="badge role-{{ u.role|lower }}">{{ u.role }}</span></td>
+            <td><code>{{ u.department_code }}</code></td>
+            <td><strong style="color:var(--primary); font-size:1rem;">{{ u.total_bookings_made }}</strong></td>
+            <td><span class="badge badge-approved">{{ u.confirmed_count }}</span></td>
+            <td>{{ u.last_booking_date or 'No bookings yet' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

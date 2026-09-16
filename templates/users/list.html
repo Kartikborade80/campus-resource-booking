@@ -1,0 +1,236 @@
+{% extends 'base.html' %}
+
+{% block title %}User Management{% endblock %}
+{% block page_heading %}Campus User Directory{% endblock %}
+{% block page_subheading %}Administrative user controls &bull; Passwords securely hashed with PBKDF2/scrypt{% endblock %}
+
+{% block content %}
+
+<div class="filter-bar">
+  <form method="GET" action="{{ url_for('users.index') }}" style="display:flex; flex-wrap:wrap; gap:12px; width:100%; align-items:center;">
+    <input type="text" name="search" class="form-control" placeholder="Search by name, email, or phone..." value="{{ search }}" style="flex:1; min-width:200px;">
+
+    <select name="role" class="form-select" style="min-width:140px;">
+      <option value="">All Roles</option>
+      <option value="Admin" {% if role_filter == 'Admin' %}selected{% endif %}>Admin</option>
+      <option value="Faculty" {% if role_filter == 'Faculty' %}selected{% endif %}>Faculty</option>
+      <option value="Student" {% if role_filter == 'Student' %}selected{% endif %}>Student</option>
+      <option value="Staff" {% if role_filter == 'Staff' %}selected{% endif %}>Staff</option>
+    </select>
+
+    <select name="department_id" class="form-select" style="min-width:180px;">
+      <option value="">All Departments</option>
+      {% for d in departments %}
+      <option value="{{ d.department_id }}" {% if dept_filter|string == d.department_id|string %}selected{% endif %}>
+        {{ d.department_code }} - {{ d.department_name }}
+      </option>
+      {% endfor %}
+    </select>
+
+    <button type="submit" class="btn btn-primary btn-sm">&#128269; Filter</button>
+    <a href="{{ url_for('users.index') }}" class="btn btn-secondary btn-sm">Reset</a>
+
+    <button type="button" class="btn btn-success btn-sm" onclick="openModal('addUserModal')" style="margin-left:auto;">
+      + Register User
+    </button>
+  </form>
+</div>
+
+
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">Registered Accounts ({{ users|length }} users)</div>
+  </div>
+  <div class="card-body" style="padding:0;">
+    <div class="table-responsive">
+      <table class="custom-table">
+        <thead>
+          <tr>
+            <th>User ID</th>
+            <th>Name &amp; Email</th>
+            <th>Role</th>
+            <th>Department</th>
+            <th>Phone</th>
+            <th>Status</th>
+            <th>Bookings Made</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+          <tr>
+            <td><code>#U{{ u.user_id }}</code></td>
+            <td>
+              <div style="font-weight:600;">{{ u.name }}</div>
+              <small style="color:var(--text-secondary);">{{ u.email }}</small>
+            </td>
+            <td><span class="badge role-{{ u.role|lower }}">{{ u.role }}</span></td>
+            <td>
+              <div>{{ u.department_name }}</div>
+              <small style="color:var(--text-muted);">{{ u.department_code }}</small>
+            </td>
+            <td>{{ u.phone or 'N/A' }}</td>
+            <td><span class="badge badge-{{ 'available' if u.status == 'Active' else 'inactive' }}">{{ u.status }}</span></td>
+            <td><strong>{{ u.booking_count }}</strong></td>
+            <td>
+              <div style="display:flex; gap:6px;">
+                <button type="button" class="btn btn-secondary btn-sm"
+                  onclick="editUser({{ u.user_id }}, '{{ u.name|replace("'", "\\'") }}', '{{ u.email }}', '{{ u.role }}', {{ u.department_id }}, '{{ u.phone or '' }}', '{{ u.status }}')">
+                  Edit
+                </button>
+                <form method="POST" action="{{ url_for('users.delete', user_id=u.user_id) }}" onsubmit="return confirm('Delete user {{ u.name }}?');" style="display:inline;">
+                  <button type="submit" class="btn btn-danger btn-sm">&#128465;</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="8" style="text-align:center; padding:32px; color:var(--text-muted);">No users match your search.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal" id="addUserModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Register New User</h3>
+      <button type="button" class="modal-close" onclick="closeModal('addUserModal')">&times;</button>
+    </div>
+    <form method="POST" action="{{ url_for('users.create') }}">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Full Name *</label>
+          <input type="text" name="name" class="form-control" required placeholder="e.g. Rahul Sharma" style="width:100%;">
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Email Address (Unique) *</label>
+            <input type="email" name="email" class="form-control" required placeholder="name@sanjivani.edu.in" style="width:100%;">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Password *</label>
+            <input type="password" name="password" class="form-control" required placeholder="••••••••" style="width:100%;">
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">System Role *</label>
+            <select name="role" class="form-select" required style="width:100%;">
+              <option value="Student">Student</option>
+              <option value="Faculty">Faculty</option>
+              <option value="Staff">Staff</option>
+              <option value="Admin">Admin</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Department *</label>
+            <select name="department_id" class="form-select" required style="width:100%;">
+              {% for d in departments %}
+              <option value="{{ d.department_id }}">{{ d.department_code }} - {{ d.department_name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Contact Phone</label>
+            <input type="text" name="phone" class="form-control" placeholder="e.g. 9822011223" style="width:100%;">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Account Status</label>
+            <select name="status" class="form-select" style="width:100%;">
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+              <option value="Suspended">Suspended</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('addUserModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save User</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<div class="modal" id="editUserModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Edit User Details</h3>
+      <button type="button" class="modal-close" onclick="closeModal('editUserModal')">&times;</button>
+    </div>
+    <form method="POST" id="editUserForm">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Full Name</label>
+          <input type="text" name="name" id="editUserName" class="form-control" required style="width:100%;">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <input type="email" name="email" id="editUserEmail" class="form-control" required style="width:100%;">
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">System Role</label>
+            <select name="role" id="editUserRole" class="form-select" required style="width:100%;">
+              <option value="Student">Student</option>
+              <option value="Faculty">Faculty</option>
+              <option value="Staff">Staff</option>
+              <option value="Admin">Admin</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Department</label>
+            <select name="department_id" id="editUserDept" class="form-select" required style="width:100%;">
+              {% for d in departments %}
+              <option value="{{ d.department_id }}">{{ d.department_code }} - {{ d.department_name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Contact Phone</label>
+            <input type="text" name="phone" id="editUserPhone" class="form-control" style="width:100%;">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <select name="status" id="editUserStatus" class="form-select" style="width:100%;">
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+              <option value="Suspended">Suspended</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Reset Password (leave blank to keep current)</label>
+          <input type="password" name="password" class="form-control" placeholder="New password" style="width:100%;">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('editUserModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Update User</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function editUser(id, name, email, role, deptId, phone, status) {
+  document.getElementById('editUserForm').action = '/users/update/' + id;
+  document.getElementById('editUserName').value = name;
+  document.getElementById('editUserEmail').value = email;
+  document.getElementById('editUserRole').value = role;
+  document.getElementById('editUserDept').value = deptId;
+  document.getElementById('editUserPhone').value = phone;
+  document.getElementById('editUserStatus').value = status;
+  openModal('editUserModal');
+}
+</script>
+{% endblock %}

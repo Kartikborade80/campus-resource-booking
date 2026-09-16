@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login | Campus Resource Booking System</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <style>
+    body {
+      background: radial-gradient(circle at top right, #1e1b4b, #0f172a, #020617);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .login-container {
+      width: 100%;
+      max-width: 460px;
+      background: #ffffff;
+      border-radius: var(--radius-xl);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .login-header {
+      background: linear-gradient(135deg, #312e81, #4f46e5);
+      color: #fff;
+      padding: 36px 32px;
+      text-align: center;
+    }
+    .login-header .badge-tag {
+      background: rgba(255, 255, 255, 0.15);
+      color: #e0e7ff;
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 12px;
+    }
+    .login-header h2 {
+      color: #fff;
+      font-size: 1.6rem;
+      margin-bottom: 6px;
+    }
+    .login-header p {
+      color: #c7d2fe;
+      font-size: 0.86rem;
+    }
+    .login-body {
+      padding: 32px;
+    }
+    .demo-roles-box {
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border-color);
+    }
+    .demo-roles-box h4 {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      letter-spacing: 0.05em;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+    .role-buttons-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .btn-demo-role {
+      font-size: 0.75rem;
+      padding: 7px 10px;
+      border: 1px solid #cbd5e1;
+      background: #f8fafc;
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      text-align: center;
+    }
+    .btn-demo-role:hover {
+      background: #e0e7ff;
+      border-color: #818cf8;
+      color: #3730a3;
+    }
+  </style>
+</head>
+<body>
+
+<div class="login-container">
+  <div class="login-header">
+    <div class="badge-tag">DBMS Mini-Project 2026</div>
+    <h2>Campus Resource Booking</h2>
+    <p>Sanjivani University Centralized Allocation Portal</p>
+  </div>
+
+  <div class="login-body">
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">
+            <span>{{ message }}</span>
+            <button type="button" class="alert-close" onclick="this.parentElement.remove()">&times;</button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('auth.login') }}" id="loginForm">
+      <div class="form-group">
+        <label class="form-label" for="email">College Email Address</label>
+        <input type="email" class="form-control" id="email" name="email" required placeholder="name@sanjivani.edu.in" style="width:100%;">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="password">Password</label>
+        <input type="password" class="form-control" id="password" name="password" required placeholder="••••••••" style="width:100%;">
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="width:100%; padding:12px; font-size:0.95rem; margin-top:8px;">
+        Sign In to Portal &rarr;
+      </button>
+
+      <button type="button" class="btn btn-secondary" onclick="openAdminModal()" style="width:100%; padding:10px; font-size:0.88rem; margin-top:10px; background:#eef2ff; color:#4338ca; border:1px solid #c7d2fe;">
+        + Register New Admin Account
+      </button>
+    </form>
+
+    <div class="demo-roles-box">
+      <h4>&#9889; Quick Demo Logins (Evaluation Mode)</h4>
+      <div class="role-buttons-grid">
+        <button type="button" class="btn-demo-role" onclick="fillCredentials('admin@sanjivani.edu.in', 'admin123')">
+          &#128100; Admin (Dr. Deshmukh)
+        </button>
+        <button type="button" class="btn-demo-role" onclick="fillCredentials('amit.cse@sanjivani.edu.in', 'faculty123')">
+          &#128084; Faculty (Prof. Amit)
+        </button>
+        <button type="button" class="btn-demo-role" onclick="fillCredentials('rohan.student@sanjivani.edu.in', 'student123')">
+          &#127891; Student (Rohan V.)
+        </button>
+        <button type="button" class="btn-demo-role" onclick="fillCredentials('suresh.staff@sanjivani.edu.in', 'staff123')">
+          &#128295; Staff (Suresh S.)
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="adminModal" style="display:none; position:fixed; z-index:999; left:0; top:0; width:100%; height:100%; background:rgba(15,23,42,0.7); backdrop-filter:blur(4px); align-items:center; justify-content:center; padding:20px;">
+  <div style="background:#fff; width:100%; max-width:440px; border-radius:16px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.5); overflow:hidden;">
+    <div style="background:#1e1b4b; color:#fff; padding:20px 24px; display:flex; justify-content:space-between; align-items:center;">
+      <h3 style="margin:0; font-size:1.15rem; color:#fff;">Register New Administrator</h3>
+      <button type="button" onclick="closeAdminModal()" style="background:none; border:none; color:#fff; font-size:1.4rem; cursor:pointer;">&times;</button>
+    </div>
+    <form method="POST" action="{{ url_for('auth.register_admin') }}" style="padding:24px;">
+      <div class="form-group" style="margin-bottom:12px;">
+        <label class="form-label" style="display:block; margin-bottom:4px; font-weight:600; font-size:0.85rem;">Full Name</label>
+        <input type="text" name="name" required class="form-control" placeholder="Dr. Ananya Sen" style="width:100%; padding:8px 12px; border:1px solid #cbd5e1; border-radius:6px;">
+      </div>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label class="form-label" style="display:block; margin-bottom:4px; font-weight:600; font-size:0.85rem;">Admin Email Address</label>
+        <input type="email" name="email" required class="form-control" placeholder="ananya.admin@sanjivani.edu.in" style="width:100%; padding:8px 12px; border:1px solid #cbd5e1; border-radius:6px;">
+      </div>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label class="form-label" style="display:block; margin-bottom:4px; font-weight:600; font-size:0.85rem;">Password</label>
+        <input type="password" name="password" required class="form-control" placeholder="••••••••" style="width:100%; padding:8px 12px; border:1px solid #cbd5e1; border-radius:6px;">
+      </div>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label class="form-label" style="display:block; margin-bottom:4px; font-weight:600; font-size:0.85rem;">Confirm Password</label>
+        <input type="password" name="confirm_password" required class="form-control" placeholder="••••••••" style="width:100%; padding:8px 12px; border:1px solid #cbd5e1; border-radius:6px;">
+      </div>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label class="form-label" style="display:block; margin-bottom:4px; font-weight:600; font-size:0.85rem;">Department</label>
+        <select name="department_id" class="form-control" style="width:100%; padding:8px 12px; border:1px solid #cbd5e1; border-radius:6px;">
+          {% if departments %}
+            {% for d in departments %}
+              <option value="{{ d.department_id }}">{{ d.department_code }} - {{ d.department_name }}</option>
+            {% endfor %}
+          {% else %}
+            <option value="1">CSE - Computer Science</option>
+          {% endif %}
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label class="form-label" style="display:block; margin-bottom:4px; font-weight:600; font-size:0.85rem;">Phone Number</label>
+        <input type="text" name="phone" value="+91-" class="form-control" style="width:100%; padding:8px 12px; border:1px solid #cbd5e1; border-radius:6px;">
+      </div>
+      <div class="form-group" style="margin-bottom:16px;">
+        <label class="form-label" style="display:block; margin-bottom:4px; font-weight:600; font-size:0.85rem;">Admin Security Key</label>
+        <input type="text" name="passcode" value="ADMIN2026" required class="form-control" style="width:100%; padding:8px 12px; border:1px solid #cbd5e1; border-radius:6px;">
+        <small style="color:#64748b; font-size:0.75rem;">Default Security Passcode: ADMIN2026</small>
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:8px;">
+        <button type="button" onclick="closeAdminModal()" class="btn btn-secondary" style="padding:8px 16px;">Cancel</button>
+        <button type="submit" class="btn btn-primary" style="padding:8px 18px; background:#10b981; border-color:#10b981;">Create Account</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function fillCredentials(email, password) {
+    document.getElementById('email').value = email;
+    document.getElementById('password').value = password;
+    const btn = document.querySelector('button[type="submit"]');
+    btn.style.boxShadow = '0 0 0 4px rgba(79, 70, 229, 0.4)';
+    setTimeout(() => { btn.style.boxShadow = ''; }, 1000);
+  }
+
+  function openAdminModal() {
+    const m = document.getElementById('adminModal');
+    m.style.display = 'flex';
+  }
+
+  function closeAdminModal() {
+    const m = document.getElementById('adminModal');
+    m.style.display = 'none';
+  }
+</script>
+
+</body>
+</html>

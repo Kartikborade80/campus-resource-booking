@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Dashboard{% endblock %} | {{ app_name }}</title>
+  
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
+</head>
+<body>
+
+<div class="app-wrapper">
+  
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <a href="{{ url_for('dashboard.index') }}" class="brand-badge">
+        <div class="brand-icon">&#127891;</div>
+        <div class="brand-text">
+          <h2>CampusBook</h2>
+          <span>{{ college_name }}</span>
+        </div>
+      </a>
+    </div>
+
+    {% if current_user %}
+    <div class="sidebar-user">
+      <div class="user-avatar">{{ current_user.name[0] }}</div>
+      <div class="user-meta">
+        <div class="user-name" title="{{ current_user.name }}">{{ current_user.name }}</div>
+        <span class="user-role-badge role-{{ current_user.role|lower }}">{{ current_user.role }}</span>
+      </div>
+    </div>
+    {% endif %}
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-title">Core Management</div>
+      <a href="{{ url_for('dashboard.index') }}" class="nav-link {% if request.endpoint == 'dashboard.index' %}active{% endif %}">
+        <span class="nav-icon">&#128202;</span> Dashboard
+      </a>
+      <a href="{{ url_for('bookings.index') }}" class="nav-link {% if request.endpoint == 'bookings.index' %}active{% endif %}">
+        <span class="nav-icon">&#128197;</span> Bookings
+      </a>
+      <a href="{{ url_for('bookings.new') }}" class="nav-link {% if request.endpoint == 'bookings.new' %}active{% endif %}">
+        <span class="nav-icon">&#10133;</span> Book a Resource
+      </a>
+
+      <div class="nav-section-title">Campus Facilities</div>
+      <a href="{{ url_for('resources.index') }}" class="nav-link {% if request.endpoint == 'resources.index' %}active{% endif %}">
+        <span class="nav-icon">&#128187;</span> Resources & Gear
+      </a>
+      <a href="{{ url_for('rooms.index') }}" class="nav-link {% if request.endpoint == 'rooms.index' %}active{% endif %}">
+        <span class="nav-icon">&#127979;</span> Venues & Rooms
+      </a>
+
+      <div class="nav-section-title">Operations & Quality</div>
+      <a href="{{ url_for('maintenance.index') }}" class="nav-link {% if request.endpoint == 'maintenance.index' %}active{% endif %}">
+        <span class="nav-icon">&#128295;</span> Maintenance
+      </a>
+      <a href="{{ url_for('feedback.index') }}" class="nav-link {% if request.endpoint == 'feedback.index' %}active{% endif %}">
+        <span class="nav-icon">&#11088;</span> Feedback & Ratings
+      </a>
+      <a href="{{ url_for('reports.index') }}" class="nav-link {% if request.endpoint == 'reports.index' %}active{% endif %}">
+        <span class="nav-icon">&#128200;</span> Analytical Reports
+      </a>
+
+      {% if current_user and current_user.role == 'Admin' %}
+      <div class="nav-section-title">Administration</div>
+      <a href="{{ url_for('users.index') }}" class="nav-link {% if request.endpoint == 'users.index' %}active{% endif %}">
+        <span class="nav-icon">&#128101;</span> User Directory
+      </a>
+      <a href="{{ url_for('departments.index') }}" class="nav-link {% if request.endpoint == 'departments.index' %}active{% endif %}">
+        <span class="nav-icon">&#127963;</span> Departments
+      </a>
+      {% endif %}
+    </nav>
+  </aside>
+
+  
+  <div class="main-content">
+    
+    <header class="top-navbar">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <button class="mobile-toggle-btn" id="mobileToggleBtn" aria-label="Toggle Sidebar">&#9776;</button>
+        <div class="page-title">
+          <h1>{% block page_heading %}Campus Resource Booking{% endblock %}</h1>
+          <p>{% block page_subheading %}Database-Driven Facility Management{% endblock %}</p>
+        </div>
+      </div>
+
+      <div class="top-actions">
+        {% if current_user %}
+        <a href="{{ url_for('bookings.new') }}" class="btn btn-primary btn-sm">
+          <span>&#10133;</span> Reserve Resource
+        </a>
+        <a href="{{ url_for('auth.profile') }}" class="btn btn-secondary btn-sm">
+          <span>&#128100;</span> Profile
+        </a>
+        <a href="{{ url_for('auth.logout') }}" class="btn btn-secondary btn-sm" title="Log out">
+          <span>&#10140;</span> Logout
+        </a>
+        {% endif %}
+      </div>
+    </header>
+
+    
+    <main class="content-body">
+      
+      <div class="flash-container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }}">
+                <span>{{ message }}</span>
+                <button type="button" class="alert-close" onclick="this.parentElement.remove()">&times;</button>
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+      </div>
+
+      
+      {% block content %}{% endblock %}
+    </main>
+
+    
+    <footer class="app-footer">
+      <div>&copy; {{ current_year }} <strong>{{ college_name }}</strong> - Campus Resource Booking System (DBMS Mini-Project)</div>
+      <div>Designed with Python Flask, MySQL 8.0 &amp; Modular 3NF Relational Architecture</div>
+    </footer>
+  </div>
+</div>
+
+
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+<script src="{{ url_for('static', filename='js/booking.js') }}"></script>
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+{% block extra_scripts %}{% endblock %}
+
+</body>
+</html>

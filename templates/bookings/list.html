@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+
+{% block title %}Manage Bookings{% endblock %}
+{% block page_heading %}Campus Bookings &amp; Schedules{% endblock %}
+{% block page_subheading %}Database-driven reservation tracking &bull; Powered by <code>booking_details_view</code>{% endblock %}
+
+{% block content %}
+
+<div class="filter-bar">
+  <form method="GET" action="{{ url_for('bookings.index') }}" style="display:flex; flex-wrap:wrap; gap:12px; width:100%; align-items:center;">
+    <input type="text" name="search" class="form-control" placeholder="Search applicant, resource, venue, purpose..." value="{{ search }}" style="flex:1; min-width:220px;">
+    
+    <select name="status" class="form-select" style="min-width:140px;">
+      <option value="">All Statuses</option>
+      <option value="Pending" {% if selected_status == 'Pending' %}selected{% endif %}>Pending</option>
+      <option value="Approved" {% if selected_status == 'Approved' %}selected{% endif %}>Approved</option>
+      <option value="Completed" {% if selected_status == 'Completed' %}selected{% endif %}>Completed</option>
+      <option value="Cancelled" {% if selected_status == 'Cancelled' %}selected{% endif %}>Cancelled</option>
+      <option value="Rejected" {% if selected_status == 'Rejected' %}selected{% endif %}>Rejected</option>
+    </select>
+
+    <input type="date" name="date" class="form-control" value="{{ selected_date }}" style="width:160px;">
+
+    {% if current_user and current_user.role in ('Admin', 'Staff') %}
+    <select name="department_id" class="form-select" style="min-width:180px;">
+      <option value="">All Departments</option>
+      {% for d in departments %}
+      <option value="{{ d.department_id }}" {% if selected_dept|string == d.department_id|string %}selected{% endif %}>
+        {{ d.department_code }} - {{ d.department_name }}
+      </option>
+      {% endfor %}
+    </select>
+    {% endif %}
+
+    <button type="submit" class="btn btn-primary btn-sm">&#128269; Filter</button>
+    <a href="{{ url_for('bookings.index') }}" class="btn btn-secondary btn-sm">Reset</a>
+
+    <a href="{{ url_for('bookings.new') }}" class="btn btn-success btn-sm" style="margin-left:auto;">
+      + New Booking Request
+    </a>
+  </form>
+</div>
+
+
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">Reservation Records ({{ bookings|length }} entries)</div>
+  </div>
+  <div class="card-body" style="padding:0;">
+    <div class="table-responsive">
+      <table class="custom-table">
+        <thead>
+          <tr>
+            <th>Ref #</th>
+            <th>Applicant</th>
+            <th>Resource &amp; Category</th>
+            <th>Venue / Room</th>
+            <th>Booking Schedule</th>
+            <th>Purpose</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for b in bookings %}
+          <tr>
+            <td><code>#{{ b.booking_id }}</code></td>
+            <td>
+              <div style="font-weight:600;">{{ b.booked_by }}</div>
+              <small style="color:var(--text-muted);">
+                {{ b.department_code }} &bull; <span class="badge role-{{ b.user_role|lower }}" style="padding:1px 6px;">{{ b.user_role }}</span>
+              </small>
+            </td>
+            <td>
+              <div style="font-weight:600;">{{ b.resource_name }}</div>
+              <small style="color:var(--text-secondary);">{{ b.resource_category }}</small>
+            </td>
+            <td>
+              {% if b.room_number %}
+                <strong>{{ b.room_number }}</strong>
+                <div><small style="color:var(--text-muted);">{{ b.building_name }}</small></div>
+              {% else %}
+                <span style="color:var(--text-muted); font-style:italic;">No room assigned</span>
+              {% endif %}
+            </td>
+            <td>
+              <div style="font-weight:600;">{{ b.booking_date }}</div>
+              <small style="color:var(--text-muted);">{{ b.slot_name }}</small>
+            </td>
+            <td style="max-width:220px;">
+              <div style="font-size:0.85rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="{{ b.purpose }}">
+                {{ b.purpose }}
+              </div>
+            </td>
+            <td>
+              <span class="badge badge-{{ b.booking_status|lower }}">{{ b.booking_status }}</span>
+            </td>
+            <td>
+              <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                
+                {% if current_user and current_user.role == 'Admin' %}
+                  {% if b.booking_status == 'Pending' %}
+                  <form method="POST" action="{{ url_for('bookings.approve', booking_id=b.booking_id) }}" style="display:inline;">
+                    <button type="submit" class="btn btn-success btn-sm" title="Approve Booking">&#10004; Approve</button>
+                  </form>
+                  <form method="POST" action="{{ url_for('bookings.reject', booking_id=b.booking_id) }}" style="display:inline;">
+                    <button type="submit" class="btn btn-danger btn-sm" title="Reject Booking">&#10008; Reject</button>
+                  </form>
+                  {% elif b.booking_status == 'Approved' %}
+                  <form method="POST" action="{{ url_for('bookings.complete', booking_id=b.booking_id) }}" style="display:inline;">
+                    <button type="submit" class="btn btn-primary btn-sm" title="Mark Completed">&#127942; Complete</button>
+                  </form>
+                  {% endif %}
+                {% endif %}
+
+                
+                {% if (current_user.role == 'Admin' or current_user.id == b.owner_user_id) and b.booking_status in ('Pending', 'Approved') %}
+                <form method="POST" action="{{ url_for('bookings.cancel', booking_id=b.booking_id) }}" onsubmit="return confirm('Cancel this reservation?');" style="display:inline;">
+                  <button type="submit" class="btn btn-secondary btn-sm" title="Cancel Booking">&#10006; Cancel</button>
+                </form>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="8" style="text-align:center; padding:32px; color:var(--text-muted);">
+              No bookings found matching the selected filters.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

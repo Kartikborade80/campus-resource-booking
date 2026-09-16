@@ -1,0 +1,256 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard Overview{% endblock %}
+{% block page_heading %}Campus Operations Dashboard{% endblock %}
+{% block page_subheading %}Live resource metrics, utilization trends &amp; booking lifecycle{% endblock %}
+
+{% block content %}
+
+<div class="stats-grid">
+  
+  <div class="stat-card">
+    <div class="stat-icon-wrapper stat-indigo">&#128101;</div>
+    <div class="stat-info">
+      <div class="stat-label">Active Users</div>
+      <div class="stat-value">{{ stats.total_users }}</div>
+    </div>
+  </div>
+
+  
+  <div class="stat-card">
+    <div class="stat-icon-wrapper stat-cyan">&#128187;</div>
+    <div class="stat-info">
+      <div class="stat-label">Total Resources</div>
+      <div class="stat-value">{{ stats.total_resources }}</div>
+    </div>
+  </div>
+
+  
+  <div class="stat-card">
+    <div class="stat-icon-wrapper stat-emerald">&#10004;</div>
+    <div class="stat-info">
+      <div class="stat-label">Available Now</div>
+      <div class="stat-value">{{ stats.available_resources }}</div>
+    </div>
+  </div>
+
+  
+  <div class="stat-card">
+    <div class="stat-icon-wrapper stat-indigo">&#127979;</div>
+    <div class="stat-info">
+      <div class="stat-label">Venues &amp; Rooms</div>
+      <div class="stat-value">{{ stats.total_rooms }}</div>
+    </div>
+  </div>
+</div>
+
+
+<div class="stats-grid">
+  
+  <div class="stat-card">
+    <div class="stat-icon-wrapper stat-amber">&#128197;</div>
+    <div class="stat-info">
+      <div class="stat-label">Today's Schedule</div>
+      <div class="stat-value">{{ stats.todays_bookings }}</div>
+    </div>
+  </div>
+
+  
+  <div class="stat-card">
+    <div class="stat-icon-wrapper stat-amber">&#9203;</div>
+    <div class="stat-info">
+      <div class="stat-label">Pending Approval</div>
+      <div class="stat-value">{{ stats.pending_bookings }}</div>
+    </div>
+  </div>
+
+  
+  <div class="stat-card">
+    <div class="stat-icon-wrapper stat-rose">&#128295;</div>
+    <div class="stat-info">
+      <div class="stat-label">In Maintenance</div>
+      <div class="stat-value">{{ stats.maintenance_resources }}</div>
+    </div>
+  </div>
+
+  
+  <div class="stat-card">
+    <div class="stat-icon-wrapper stat-emerald">&#127942;</div>
+    <div class="stat-info">
+      <div class="stat-label">Completed Events</div>
+      <div class="stat-value">{{ stats.completed_bookings }}</div>
+    </div>
+  </div>
+</div>
+
+
+<div class="grid-2">
+  
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">&#128202; Resource Usage by Department</div>
+        <div class="card-subtitle">Aggregated booking demand across college faculties</div>
+      </div>
+    </div>
+    <div class="card-body" style="height: 280px; position: relative;">
+      <canvas id="deptChart"></canvas>
+    </div>
+  </div>
+
+  
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">&#127899; Utilization by Category</div>
+        <div class="card-subtitle">Distribution of asset types in circulation</div>
+      </div>
+    </div>
+    <div class="card-body" style="height: 280px; position: relative;">
+      <canvas id="categoryChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<div class="grid-2">
+  
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">&#128200; Monthly Booking Growth Trend</div>
+        <div class="card-subtitle">Volume of campus reservation requests over time</div>
+      </div>
+    </div>
+    <div class="card-body" style="height: 280px; position: relative;">
+      <canvas id="trendChart"></canvas>
+    </div>
+  </div>
+
+  
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">&#9672; Booking Status Distribution</div>
+        <div class="card-subtitle">Approval vs. completion vs. rejection breakdown</div>
+      </div>
+    </div>
+    <div class="card-body" style="height: 280px; position: relative;">
+      <canvas id="statusChart"></canvas>
+    </div>
+  </div>
+</div>
+
+
+<div class="grid-2">
+  
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">&#128337; Recent Bookings (Live MySQL View)</div>
+        <div class="card-subtitle">Sourced from <code>booking_details_view</code></div>
+      </div>
+      <a href="{{ url_for('bookings.index') }}" class="btn btn-secondary btn-sm">All Bookings &rarr;</a>
+    </div>
+    <div class="card-body" style="padding:0;">
+      <div class="table-responsive">
+        <table class="custom-table">
+          <thead>
+            <tr>
+              <th>User</th>
+              <th>Resource / Venue</th>
+              <th>Date &amp; Slot</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for b in recent_bookings %}
+            <tr>
+              <td>
+                <div style="font-weight:600;">{{ b.booked_by }}</div>
+                <small style="color:var(--text-muted);">{{ b.department_code }} &bull; {{ b.user_role }}</small>
+              </td>
+              <td>
+                <div>{{ b.resource_name }}</div>
+                <small style="color:var(--text-muted);">{{ b.room_number or 'No room' }}</small>
+              </td>
+              <td>
+                <div>{{ b.booking_date }}</div>
+                <small style="color:var(--text-muted);">{{ b.slot_name }}</small>
+              </td>
+              <td>
+                <span class="badge badge-{{ b.booking_status|lower }}">{{ b.booking_status }}</span>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" style="text-align:center; padding:24px;">No bookings recorded.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">&#9888; Pending Action &amp; Maintenance</div>
+        <div class="card-subtitle">Items requiring administrative attention</div>
+      </div>
+      <a href="{{ url_for('maintenance.index') }}" class="btn btn-secondary btn-sm">Maintenance Hub &rarr;</a>
+    </div>
+    <div class="card-body">
+      
+      <h4 style="font-size:0.85rem; text-transform:uppercase; color:var(--text-secondary); margin-bottom:12px;">
+        Requests Pending Approval ({{ pending_list|length }})
+      </h4>
+      {% if pending_list %}
+        <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:24px;">
+          {% for p in pending_list %}
+          <div style="padding:12px; background:#fffbeb; border:1px solid #fde68a; border-radius:var(--radius-md); display:flex; align-items:center; justify-content:space-between;">
+            <div>
+              <div style="font-weight:600; font-size:0.88rem;">{{ p.booked_by }} &bull; {{ p.resource_name }}</div>
+              <div style="font-size:0.78rem; color:#92400e;">{{ p.booking_date }} &bull; {{ p.slot_name }} &bull; <em>{{ p.purpose }}</em></div>
+            </div>
+            {% if current_user and current_user.role == 'Admin' %}
+            <div style="display:flex; gap:6px;">
+              <form method="POST" action="{{ url_for('bookings.approve', booking_id=p.booking_id) }}" style="display:inline;">
+                <button type="submit" class="btn btn-success btn-sm" title="Approve">&#10004;</button>
+              </form>
+              <form method="POST" action="{{ url_for('bookings.reject', booking_id=p.booking_id) }}" style="display:inline;">
+                <button type="submit" class="btn btn-danger btn-sm" title="Reject">&#10008;</button>
+              </form>
+            </div>
+            {% else %}
+            <span class="badge badge-pending">Pending</span>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:20px;">No pending booking requests.</p>
+      {% endif %}
+
+      
+      <h4 style="font-size:0.85rem; text-transform:uppercase; color:var(--text-secondary); margin-bottom:12px;">
+        Active Maintenance Alerts ({{ active_maintenance|length }})
+      </h4>
+      {% if active_maintenance %}
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          {% for m in active_maintenance %}
+          <div style="padding:10px 12px; background:#fef2f2; border:1px solid #fecaca; border-radius:var(--radius-md); display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <strong style="font-size:0.85rem; color:#991b1b;">{{ m.asset_name }}</strong>: {{ m.issue_title }}
+              <div style="font-size:0.75rem; color:#b91c1c;">Reported on {{ m.maintenance_date }} by {{ m.reported_by_name }}</div>
+            </div>
+            <span class="badge badge-maintenance">{{ m.maintenance_status }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p style="color:var(--text-muted); font-size:0.85rem;">All campus resources and rooms are in good condition.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

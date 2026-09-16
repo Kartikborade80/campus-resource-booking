@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+
+{% block title %}Server Error{% endblock %}
+{% block page_heading %}500 - Internal Server Error{% endblock %}
+{% block page_subheading %}An unexpected system or database condition occurred{% endblock %}
+
+{% block content %}
+<div style="text-align:center; padding: 60px 20px;">
+  <div style="font-size: 5rem; font-weight:800; color:var(--danger); font-family:'Outfit',sans-serif; line-height:1;">500</div>
+  <h2 style="margin: 16px 0; font-size:1.6rem;">Internal System Processing Error</h2>
+  <p style="color:var(--text-secondary); max-width:520px; margin: 0 auto 24px;">
+    An error occurred during database transaction processing. Please verify that your MySQL server is running and check table integrity.
+  </p>
+  {% if error %}
+  <div style="max-width:600px; margin:0 auto 24px; text-align:left; background:#fef2f2; border:1px solid #fecaca; padding:16px; border-radius:8px; font-family:monospace; font-size:0.8rem; color:#991b1b; overflow-x:auto;">
+    {{ error }}
+  </div>
+  {% endif %}
+  <a href="{{ url_for('dashboard.index') }}" class="btn btn-primary">
+    &larr; Return to Dashboard
+  </a>
+</div>
+{% endblock %}

@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+
+{% block title %}Book Campus Resource{% endblock %}
+{% block page_heading %}Resource Booking Wizard{% endblock %}
+{% block page_subheading %}Interactive reservation portal with real-time double-booking conflict prevention{% endblock %}
+
+{% block content %}
+<div style="max-width: 820px; margin: 0 auto;">
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">&#128197; Create New Campus Reservation</div>
+        <div class="card-subtitle">Validated via MySQL Stored Procedure <code>book_resource()</code></div>
+      </div>
+      <a href="{{ url_for('bookings.index') }}" class="btn btn-secondary btn-sm">&larr; Back to Bookings</a>
+    </div>
+
+    <form method="POST" action="{{ url_for('bookings.new') }}">
+      <div class="card-body">
+        
+        <div class="form-group">
+          <label class="form-label" for="resourceSelect">1. Select Campus Resource / Equipment *</label>
+          <select name="resource_id" id="resourceSelect" class="form-select" required style="width:100%;">
+            <option value="">-- Choose Equipment or Hardware --</option>
+            {% for r in resources %}
+            <option value="{{ r.resource_id }}" {% if r.status != 'Available' %}data-status="{{ r.status }}"{% endif %}>
+              [{{ r.category_name }}] {{ r.resource_name }} ({{ r.resource_code }}) - Located at: {{ r.location }} {% if r.status != 'Available' %}(Currently {{ r.status }}){% endif %}
+            </option>
+            {% endfor %}
+          </select>
+          <div class="form-hint">Items in Maintenance or Inactive cannot be selected.</div>
+        </div>
+
+        
+        <div class="form-group">
+          <label class="form-label" for="roomSelect">2. Allocate Room / Venue (Optional)</label>
+          <select name="room_id" id="roomSelect" class="form-select" style="width:100%;">
+            <option value="">-- No Venue Required / Portable Usage --</option>
+            {% for rm in rooms %}
+            <option value="{{ rm.room_id }}">
+              {{ rm.room_number }} - {{ rm.building_name }} ({{ rm.room_type }}, Capacity: {{ rm.capacity }} seats)
+            </option>
+            {% endfor %}
+          </select>
+          <div class="form-hint">If specified, system verifies that both resource and room are free.</div>
+        </div>
+
+        
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label" for="bookingDate">3. Reservation Date *</label>
+            <input type="date" name="booking_date" id="bookingDate" class="form-control" min="{{ today }}" value="{{ today }}" required style="width:100%;">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="slotSelect">4. Academic Time Slot *</label>
+            <select name="slot_id" id="slotSelect" class="form-select" required style="width:100%;">
+              <option value="">-- Select Academic Time Slot --</option>
+              {% for s in slots %}
+              <option value="{{ s.slot_id }}">
+                {{ s.slot_name }} ({{ s.start_fmt }} - {{ s.end_fmt }})
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        
+        <div class="form-group">
+          <label class="form-label">Live Availability Verification</label>
+          <div id="availabilityStatus" style="padding: 12px; background: #f8fafc; border: 1px dashed var(--border-color); border-radius: var(--radius-md); font-size: 0.88rem;">
+            <span style="color: var(--text-muted);">&#9432; Select Resource, Date, and Slot above to verify availability automatically.</span>
+          </div>
+        </div>
+
+        
+        <div class="form-group">
+          <label class="form-label" for="purpose">5. Academic Purpose / Event Description *</label>
+          <textarea name="purpose" id="purpose" class="form-control" rows="3" required placeholder="Specify lecture title, workshop agenda, student project research, or official event details..." style="width:100%;"></textarea>
+        </div>
+
+        
+        <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:var(--radius-md); padding:14px; margin-top:20px; font-size:0.82rem; color:#1e40af;">
+          <strong>Database Validation Note:</strong>
+          Faculty and Admin reservations are auto-approved by the stored procedure. Student requests are submitted into <code>Pending</code> status for faculty/admin review. Double bookings on resources and venues are blocked at both backend and MySQL trigger levels.
+        </div>
+      </div>
+
+      <div class="card-footer" style="padding:18px 24px; background:#f8fafc; border-top:1px solid var(--border-color); display:flex; justify-content:flex-end; gap:12px;">
+        <a href="{{ url_for('bookings.index') }}" class="btn btn-secondary">Cancel</a>
+        <button type="submit" id="submitBookingBtn" class="btn btn-primary" style="padding:10px 24px;">
+          Confirm Reservation Request &rarr;
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
