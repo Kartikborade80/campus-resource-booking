@@ -107,4 +107,40 @@ BEGIN
     END IF;
 END$$
 
+DROP TRIGGER IF EXISTS before_user_insert_single_admin$$
+CREATE TRIGGER before_user_insert_single_admin
+BEFORE INSERT ON users
+FOR EACH ROW
+BEGIN
+    DECLARE v_admin_count INT DEFAULT 0;
+    IF UPPER(NEW.role) = 'ADMIN' THEN
+        SELECT COUNT(*) INTO v_admin_count
+        FROM users
+        WHERE UPPER(role) = 'ADMIN';
+
+        IF v_admin_count >= 1 THEN
+            SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Only one administrator account is permitted in the system. An administrator already exists.';
+        END IF;
+    END IF;
+END$$
+
+DROP TRIGGER IF EXISTS before_user_update_single_admin$$
+CREATE TRIGGER before_user_update_single_admin
+BEFORE UPDATE ON users
+FOR EACH ROW
+BEGIN
+    DECLARE v_admin_count INT DEFAULT 0;
+    IF UPPER(NEW.role) = 'ADMIN' AND UPPER(OLD.role) <> 'ADMIN' THEN
+        SELECT COUNT(*) INTO v_admin_count
+        FROM users
+        WHERE UPPER(role) = 'ADMIN' AND user_id <> OLD.user_id;
+
+        IF v_admin_count >= 1 THEN
+            SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Only one administrator account is permitted in the system. Cannot promote user to administrator.';
+        END IF;
+    END IF;
+END$$
+
 DELIMITER ;

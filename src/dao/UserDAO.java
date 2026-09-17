@@ -104,7 +104,30 @@ public class UserDAO {
         return list;
     }
 
+    public boolean hasAdmin() {
+        String sql = "SELECT COUNT(*) FROM users WHERE UPPER(role) = 'ADMIN'";
+        Connection conn = null;
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+        try {
+            conn = DatabaseConnection.getConnection();
+            ps = conn.prepareStatement(sql);
+            rs = ps.executeQuery();
+            return rs.next() && rs.getInt(1) >= 1;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        } finally {
+            DatabaseConnection.close(rs, ps, conn);
+        }
+    }
+
     public boolean addUser(User user) {
+        if ("ADMIN".equalsIgnoreCase(user.getRole()) && hasAdmin()) {
+            lastError = "Only one administrator account is permitted in the system. An administrator already exists.";
+            return false;
+        }
+
         String sql = "INSERT INTO users (name, email, password, phone, role, department_id, status) VALUES (?, ?, ?, ?, ?, ?, ?)";
         Connection conn = null;
         PreparedStatement ps = null;
@@ -130,6 +153,27 @@ public class UserDAO {
     }
 
     public boolean updateUser(User user) {
+        if ("ADMIN".equalsIgnoreCase(user.getRole())) {
+            String checkSql = "SELECT COUNT(*) FROM users WHERE UPPER(role) = 'ADMIN' AND user_id <> ?";
+            Connection connCheck = null;
+            PreparedStatement psCheck = null;
+            ResultSet rsCheck = null;
+            try {
+                connCheck = DatabaseConnection.getConnection();
+                psCheck = connCheck.prepareStatement(checkSql);
+                psCheck.setInt(1, user.getUserId());
+                rsCheck = psCheck.executeQuery();
+                if (rsCheck.next() && rsCheck.getInt(1) >= 1) {
+                    lastError = "Only one administrator account is permitted in the system.";
+                    return false;
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
+            } finally {
+                DatabaseConnection.close(rsCheck, psCheck, connCheck);
+            }
+        }
+
         String sql = "UPDATE users SET name = ?, email = ?, password = ?, phone = ?, role = ?, department_id = ?, status = ? WHERE user_id = ?";
         Connection conn = null;
         PreparedStatement ps = null;
@@ -144,8 +188,10 @@ public class UserDAO {
             ps.setInt(6, user.getDepartmentId());
             ps.setString(7, user.getStatus());
             ps.setInt(8, user.getUserId());
+            lastError = "";
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
+            lastError = e.getMessage();
             e.printStackTrace();
             return false;
         } finally {

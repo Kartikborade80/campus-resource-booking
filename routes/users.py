@@ -64,12 +64,17 @@ def create():
         flash(f"User with email '{email}' already exists.", 'danger')
         return redirect(url_for('users.index'))
 
-    hashed = generate_password_hash(password)
+    if role.upper() == 'ADMIN':
+        admin_exists = query_one("SELECT user_id FROM users WHERE UPPER(role) = 'ADMIN'")
+        if admin_exists:
+            flash('Only one administrator account is permitted in the system. An administrator already exists.', 'danger')
+            return redirect(url_for('users.index'))
+
     try:
         execute_action("""
-            INSERT INTO users (name, email, password_hash, role, department_id, phone, status)
+            INSERT INTO users (name, email, password, role, department_id, phone, status)
             VALUES (%s, %s, %s, %s, %s, %s, %s)
-        """, (name, email, hashed, role, department_id, phone or None, status))
+        """, (name, email, password, role, department_id, phone or None, status))
         flash(f"User '{name}' added successfully!", 'success')
     except Exception as e:
         flash(f"Error creating user: {e}", 'danger')
@@ -97,15 +102,20 @@ def update(user_id):
         flash(f"Email '{email}' is already in use by another user.", 'danger')
         return redirect(url_for('users.index'))
 
+    if role and role.upper() == 'ADMIN':
+        admin_exists = query_one("SELECT user_id FROM users WHERE UPPER(role) = 'ADMIN' AND user_id <> %s", (user_id,))
+        if admin_exists:
+            flash('Only one administrator account is permitted in the system. An administrator already exists.', 'danger')
+            return redirect(url_for('users.index'))
+
     try:
         if password:
-            hashed = generate_password_hash(password)
             execute_action("""
                 UPDATE users
-                SET name = %s, email = %s, password_hash = %s, role = %s,
+                SET name = %s, email = %s, password = %s, role = %s,
                     department_id = %s, phone = %s, status = %s
                 WHERE user_id = %s
-            """, (name, email, hashed, role, department_id, phone or None, status, user_id))
+            """, (name, email, password, role, department_id, phone or None, status, user_id))
         else:
             execute_action("""
                 UPDATE users

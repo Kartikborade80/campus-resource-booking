@@ -28,11 +28,15 @@ public class AdminDashboard extends JFrame {
     private JTable tblRecent;
     private DefaultTableModel tblModelRecent;
 
+    private JTable tblPending;
+    private DefaultTableModel tblModelPending;
+
     public AdminDashboard(User user) {
         this.currentUser = user;
         initUI();
         refreshMetrics();
         loadRecentBookings();
+        loadPendingQueue();
     }
 
     private void initUI() {
@@ -114,6 +118,11 @@ public class AdminDashboard extends JFrame {
         statsGrid.add(createMetricCard("Pending Approvals", lblPendingBookings, new Color(239, 68, 68)));
         statsGrid.add(createMetricCard("Maintenance Logs", lblMaintenance, new Color(107, 114, 128)));
 
+        // Live Bookings & Pending Approvals Split or Tabs
+        JTabbedPane dashboardTabs = new JTabbedPane();
+        dashboardTabs.setFont(new Font("Segoe UI", Font.BOLD, 13));
+
+        // TAB 1: Live Bookings Feed
         JPanel recentPanel = new JPanel(new BorderLayout(8, 8));
         recentPanel.setBackground(Color.WHITE);
         recentPanel.setBorder(BorderFactory.createCompoundBorder(
@@ -124,50 +133,134 @@ public class AdminDashboard extends JFrame {
         JPanel recentTop = new JPanel(new BorderLayout());
         recentTop.setBackground(Color.WHITE);
 
-        JLabel lblRecentTitle = new JLabel("Live Campus Bookings Feed");
+        JLabel lblRecentTitle = new JLabel("Live Campus Bookings & Schedules");
         lblRecentTitle.setFont(new Font("Segoe UI", Font.BOLD, 15));
         lblRecentTitle.setForeground(new Color(30, 41, 59));
 
         JPanel quickActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
         quickActions.setBackground(Color.WHITE);
 
-        JButton btnQuickBook = new JButton("+ New Booking");
-        UIStyle.styleButton(btnQuickBook);
-        btnQuickBook.addActionListener(e -> {
-            BookingFrame bf = new BookingFrame(currentUser);
-            bf.setVisible(true);
-            bf.showNewBookingWizard();
-        });
+        JButton btnManageBookings = new JButton("Open Bookings Manager ->");
+        UIStyle.styleButton(btnManageBookings);
+        btnManageBookings.addActionListener(e -> new BookingFrame(currentUser).setVisible(true));
 
-        JButton btnQuickRefresh = new JButton("Refresh Dashboard");
+        JButton btnQuickRefresh = new JButton("Refresh");
         UIStyle.styleButton(btnQuickRefresh);
         btnQuickRefresh.addActionListener(e -> {
             refreshMetrics();
             loadRecentBookings();
+            loadPendingQueue();
         });
 
-        quickActions.add(btnQuickBook);
+        quickActions.add(btnManageBookings);
         quickActions.add(btnQuickRefresh);
         recentTop.add(lblRecentTitle, BorderLayout.WEST);
         recentTop.add(quickActions, BorderLayout.EAST);
         recentPanel.add(recentTop, BorderLayout.NORTH);
 
-        String[] cols = {"ID", "User", "Dept", "Resource", "Room", "Slot", "Booking Date", "Status"};
+        String[] cols = {"ID", "User", "Dept", "Resource / Lab", "Room Venue", "Slot", "Booking Date", "Status"};
         tblModelRecent = new DefaultTableModel(cols, 0) {
             @Override
             public boolean isCellEditable(int row, int column) { return false; }
         };
         tblRecent = new JTable(tblModelRecent);
-        tblRecent.setRowHeight(26);
+        tblRecent.setRowHeight(28);
         tblRecent.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         tblRecent.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 12));
         tblRecent.getTableHeader().setBackground(new Color(241, 245, 249));
+        tblRecent.getColumnModel().getColumn(7).setCellRenderer(UIStyle.createStatusBadgeRenderer());
+        tblRecent.getColumnModel().getColumn(7).setPreferredWidth(120);
 
         JScrollPane scrollRecent = new JScrollPane(tblRecent);
         recentPanel.add(scrollRecent, BorderLayout.CENTER);
 
+        // TAB 2: Pending Approval Queue (Direct Actionable)
+        JPanel pendingPanel = new JPanel(new BorderLayout(8, 8));
+        pendingPanel.setBackground(Color.WHITE);
+        pendingPanel.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(226, 232, 240)),
+            new EmptyBorder(12, 15, 12, 15)
+        ));
+
+        JPanel pendingTop = new JPanel(new BorderLayout());
+        pendingTop.setBackground(new Color(254, 243, 199));
+        pendingTop.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(251, 191, 36), 1, true),
+            new EmptyBorder(8, 12, 8, 12)
+        ));
+
+        JLabel lblPendingQueueTitle = new JLabel("Action Required: Review Pending Lab & Classroom Reservation Requests");
+        lblPendingQueueTitle.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        lblPendingQueueTitle.setForeground(new Color(146, 64, 14));
+        pendingTop.add(lblPendingQueueTitle, BorderLayout.WEST);
+
+        String[] pendingCols = {"ID", "Applicant", "Dept", "Resource / Lab", "Room Venue", "Slot", "Booking Date", "Purpose", "Status"};
+        tblModelPending = new DefaultTableModel(pendingCols, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) { return false; }
+        };
+        tblPending = new JTable(tblModelPending);
+        tblPending.setRowHeight(28);
+        tblPending.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        tblPending.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 12));
+        tblPending.getTableHeader().setBackground(new Color(241, 245, 249));
+        tblPending.getColumnModel().getColumn(8).setCellRenderer(UIStyle.createStatusBadgeRenderer());
+        tblPending.getColumnModel().getColumn(8).setPreferredWidth(120);
+
+        JScrollPane scrollPending = new JScrollPane(tblPending);
+
+        JPanel pendingActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 6));
+        pendingActions.setBackground(Color.WHITE);
+
+        JButton btnApproveDirect = new JButton("Approve Request");
+        UIStyle.styleButton(btnApproveDirect);
+        btnApproveDirect.addActionListener(e -> {
+            int row = tblPending.getSelectedRow();
+            if (row < 0) {
+                JOptionPane.showMessageDialog(this, "Select a pending request to approve.", "Selection Required", JOptionPane.INFORMATION_MESSAGE);
+                return;
+            }
+            int bookingId = (Integer) tblModelPending.getValueAt(row, 0);
+            if (bookingDAO.updateBookingStatus(bookingId, "APPROVED", currentUser.getUserId())) {
+                JOptionPane.showMessageDialog(this, "Booking #" + bookingId + " APPROVED successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+                refreshMetrics();
+                loadRecentBookings();
+                loadPendingQueue();
+            }
+        });
+
+        JButton btnRejectDirect = new JButton("Reject Request");
+        UIStyle.styleButton(btnRejectDirect);
+        btnRejectDirect.addActionListener(e -> {
+            int row = tblPending.getSelectedRow();
+            if (row < 0) {
+                JOptionPane.showMessageDialog(this, "Select a pending request to reject.", "Selection Required", JOptionPane.INFORMATION_MESSAGE);
+                return;
+            }
+            int bookingId = (Integer) tblModelPending.getValueAt(row, 0);
+            int confirm = JOptionPane.showConfirmDialog(this, "Reject booking request #" + bookingId + "?", "Confirm Rejection", JOptionPane.YES_NO_OPTION);
+            if (confirm == JOptionPane.YES_OPTION) {
+                if (bookingDAO.updateBookingStatus(bookingId, "REJECTED", currentUser.getUserId())) {
+                    JOptionPane.showMessageDialog(this, "Booking #" + bookingId + " REJECTED.", "Status Updated", JOptionPane.INFORMATION_MESSAGE);
+                    refreshMetrics();
+                    loadRecentBookings();
+                    loadPendingQueue();
+                }
+            }
+        });
+
+        pendingActions.add(btnApproveDirect);
+        pendingActions.add(btnRejectDirect);
+
+        pendingPanel.add(pendingTop, BorderLayout.NORTH);
+        pendingPanel.add(scrollPending, BorderLayout.CENTER);
+        pendingPanel.add(pendingActions, BorderLayout.SOUTH);
+
+        dashboardTabs.addTab("⏳ Pending Approvals Queue", pendingPanel);
+        dashboardTabs.addTab("📋 Live Bookings Feed", recentPanel);
+
         centerPanel.add(statsGrid, BorderLayout.NORTH);
-        centerPanel.add(recentPanel, BorderLayout.CENTER);
+        centerPanel.add(dashboardTabs, BorderLayout.CENTER);
 
         JPanel contentWrapper = new JPanel(new BorderLayout());
         contentWrapper.add(navBar, BorderLayout.NORTH);
@@ -242,6 +335,28 @@ public class AdminDashboard extends JFrame {
                 b.getBookingDate(),
                 b.getBookingStatus()
             });
+        }
+    }
+
+    private void loadPendingQueue() {
+        if (tblModelPending == null) return;
+        tblModelPending.setRowCount(0);
+        List<Booking> list = bookingDAO.getAllBookings();
+        for (Booking b : list) {
+            if ("PENDING".equalsIgnoreCase(b.getBookingStatus())) {
+                String venue = b.getRoomNumber() != null ? b.getRoomNumber() : "Portable Asset";
+                tblModelPending.addRow(new Object[]{
+                    b.getBookingId(),
+                    b.getUserName(),
+                    b.getDepartmentName(),
+                    b.getResourceName(),
+                    venue,
+                    b.getSlotName(),
+                    b.getBookingDate(),
+                    b.getPurpose(),
+                    b.getBookingStatus()
+                });
+            }
         }
     }
 }

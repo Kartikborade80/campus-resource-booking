@@ -148,10 +148,10 @@ public class LoginFrame extends JFrame {
         JPanel demoBtns = new JPanel(new FlowLayout(FlowLayout.CENTER, 6, 0));
         demoBtns.setBackground(new Color(248, 250, 252));
 
-        JButton btnDemoAdmin = createDemoButton("Admin", "admin@sanjivani.edu.in", "admin123");
-        JButton btnDemoFaculty = createDemoButton("Faculty", "amit.cse@sanjivani.edu.in", "faculty123");
-        JButton btnDemoStudent = createDemoButton("Student", "rohan.student@sanjivani.edu.in", "student123");
-        JButton btnDemoStaff = createDemoButton("Staff", "suresh.staff@sanjivani.edu.in", "staff123");
+        JButton btnDemoAdmin = createDemoButton("Admin", "admin@sanjivani.edu.in", "Admin@123");
+        JButton btnDemoFaculty = createDemoButton("Faculty", "anand.joshi@sanjivani.edu.in", "Pass@123");
+        JButton btnDemoStudent = createDemoButton("Student", "rahul.student@sanjivani.edu.in", "studentpass123");
+        JButton btnDemoStaff = createDemoButton("Faculty 2", "rajesh.patil@sanjivani.edu.in", "Pass@123");
 
         demoBtns.add(btnDemoAdmin);
         demoBtns.add(btnDemoFaculty);
@@ -249,6 +249,13 @@ public class LoginFrame extends JFrame {
     }
 
     private void showRegisterAdminDialog() {
+        if (userDAO.hasAdmin()) {
+            JOptionPane.showMessageDialog(this,
+                "An administrator account is already configured in the system.\nOnly one administrator account is allowed.",
+                "Administrator Already Configured", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
         JDialog dlg = new JDialog(this, "Register New Administrator", true);
         dlg.setSize(480, 530);
         dlg.setLocationRelativeTo(this);

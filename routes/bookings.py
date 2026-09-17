@@ -71,9 +71,27 @@ def index():
     bookings = query_all(sql, params)
     departments = query_all("SELECT department_id, department_name, department_code FROM departments WHERE status = 'Active'")
 
+    # Segregate Pending and Approved requests for labs & classrooms
+    pending_bookings = [b for b in bookings if str(b.get('booking_status', '')).upper() == 'PENDING']
+    approved_bookings = [b for b in bookings if str(b.get('booking_status', '')).upper() == 'APPROVED']
+
+    active_tab = request.args.get('tab', '').strip().lower()
+    if not active_tab:
+        if status_filter:
+            active_tab = 'all'
+        elif pending_bookings:
+            active_tab = 'pending'
+        else:
+            active_tab = 'approved' if approved_bookings else 'all'
+
     return render_template(
         'bookings/list.html',
         bookings=bookings,
+        pending_bookings=pending_bookings,
+        approved_bookings=approved_bookings,
+        pending_count=len(pending_bookings),
+        approved_count=len(approved_bookings),
+        active_tab=active_tab,
         departments=departments,
         search=search,
         selected_status=status_filter,
@@ -114,7 +132,7 @@ def new():
 
             if res and res['code'] == 0:
                 flash(f"Success! {res['msg']} (Booking Reference: #{res['booking_id']})", 'success')
-                return redirect(url_for('bookings.index'))
+                return redirect(url_for('bookings.index', tab='pending'))
             else:
                 error_msg = res['msg'] if res else 'Unknown booking error occurred.'
                 flash(f"Booking Failed: {error_msg}", 'danger')
@@ -159,13 +177,13 @@ def approve(booking_id):
     try:
         execute_action("""
             UPDATE bookings
-            SET booking_status = 'Approved', approved_by = %s
+            SET booking_status = 'APPROVED', approved_by = %s
             WHERE booking_id = %s
         """, (session['user_id'], booking_id))
-        flash(f'Booking #{booking_id} has been Approved.', 'success')
+        flash(f'Booking #{booking_id} has been Approved! Venue and equipment reserved.', 'success')
     except Exception as e:
         flash(f'Error approving booking: {e}', 'danger')
-    return redirect(url_for('bookings.index'))
+    return redirect(url_for('bookings.index', tab='approved'))
 
 @bookings_bp.route('/bookings/reject/<int:booking_id>', methods=['POST'])
 @login_required
@@ -174,13 +192,13 @@ def reject(booking_id):
     try:
         execute_action("""
             UPDATE bookings
-            SET booking_status = 'Rejected', approved_by = %s
+            SET booking_status = 'REJECTED', approved_by = %s
             WHERE booking_id = %s
         """, (session['user_id'], booking_id))
         flash(f'Booking #{booking_id} has been Rejected.', 'info')
     except Exception as e:
         flash(f'Error rejecting booking: {e}', 'danger')
-    return redirect(url_for('bookings.index'))
+    return redirect(url_for('bookings.index', tab='pending'))
 
 @bookings_bp.route('/bookings/cancel/<int:booking_id>', methods=['POST'])
 @login_required
@@ -215,13 +233,13 @@ def complete(booking_id):
     try:
         execute_action("""
             UPDATE bookings
-            SET booking_status = 'Completed'
+            SET booking_status = 'COMPLETED'
             WHERE booking_id = %s
         """, (booking_id,))
-        flash(f'Booking #{booking_id} marked as Completed. Resource returned to Available.', 'success')
+        flash(f'Booking #{booking_id} marked as Completed. Resource released back to Available.', 'success')
     except Exception as e:
         flash(f'Error completing booking: {e}', 'danger')
-    return redirect(url_for('bookings.index'))
+    return redirect(url_for('bookings.index', tab='approved'))
 
 @bookings_bp.route('/api/check-availability')
 @login_required

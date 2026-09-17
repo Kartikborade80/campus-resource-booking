@@ -42,7 +42,7 @@ def login():
             return render_template('auth/login.html')
 
         user = query_one("""
-            SELECT u.user_id, u.name, u.email, u.password_hash, u.role, u.department_id, u.status, d.department_name
+            SELECT u.user_id, u.name, u.email, u.password, u.role, u.department_id, u.status, d.department_name
             FROM users u
             JOIN departments d ON u.department_id = d.department_id
             WHERE LOWER(u.email) = %s
@@ -56,7 +56,16 @@ def login():
             flash('Your account is currently inactive or suspended. Please contact the administrator.', 'danger')
             return render_template('auth/login.html')
 
-        if check_password_hash(user['password_hash'], password):
+        is_authenticated = False
+        try:
+            if check_password_hash(user['password'], password):
+                is_authenticated = True
+        except Exception:
+            pass
+        if not is_authenticated and user['password'] == password:
+            is_authenticated = True
+
+        if is_authenticated:
             session['user_id'] = user['user_id']
             session['name'] = user['name']
             session['email'] = user['email']
@@ -70,10 +79,17 @@ def login():
             flash('Invalid email or password.', 'danger')
 
     departments = query_all("SELECT department_id, department_name, department_code FROM departments WHERE status = 'Active'")
-    return render_template('auth/login.html', departments=departments)
+    admin_count = query_one("SELECT COUNT(*) AS cnt FROM users WHERE UPPER(role) = 'ADMIN'")
+    has_admin = bool(admin_count and admin_count['cnt'] >= 1)
+    return render_template('auth/login.html', departments=departments, has_admin=has_admin)
 
 @auth_bp.route('/register-admin', methods=['POST'])
 def register_admin():
+    admin_count = query_one("SELECT COUNT(*) AS cnt FROM users WHERE UPPER(role) = 'ADMIN'")
+    if admin_count and admin_count['cnt'] >= 1:
+        flash('Only one administrator account is permitted in the system. An administrator is already configured.', 'danger')
+        return redirect(url_for('auth.login'))
+
     name = request.form.get('name', '').strip()
     email = request.form.get('email', '').strip().lower()
     password = request.form.get('password', '')
@@ -99,11 +115,10 @@ def register_admin():
         flash(f'An account with email {email} already exists.', 'danger')
         return redirect(url_for('auth.login'))
 
-    pwd_hash = generate_password_hash(password)
     new_id = execute_action("""
-        INSERT INTO users (name, email, password_hash, role, department_id, phone, status)
-        VALUES (%s, %s, %s, 'Admin', %s, %s, 'Active')
-    """, (name, email, pwd_hash, department_id if department_id else 1, phone))
+        INSERT INTO users (name, email, password, role, department_id, phone, status)
+        VALUES (%s, %s, %s, 'ADMIN', %s, %s, 'Active')
+    """, (name, email, password, department_id if department_id else 1, phone))
 
     if new_id:
         flash(f'Admin account for {name} registered successfully! Please log in.', 'success')

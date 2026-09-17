@@ -187,6 +187,11 @@ public class UserFrame extends JFrame {
                 return;
             }
 
+            if ("ADMIN".equalsIgnoreCase((String) cmbRole.getSelectedItem()) && userDAO.hasAdmin()) {
+                JOptionPane.showMessageDialog(dlg, "Only one administrator account is permitted in the system.\nAn administrator already exists.", "Validation Error", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
             Department dept = (Department) cmbDept.getSelectedItem();
             User user = new User();
             user.setName(name);
@@ -202,7 +207,8 @@ public class UserFrame extends JFrame {
                 dlg.dispose();
                 loadData();
             } else {
-                JOptionPane.showMessageDialog(dlg, "Failed to create user. Email may already be registered.", "Error", JOptionPane.ERROR_MESSAGE);
+                String err = userDAO.getLastError().isEmpty() ? "Email may already be registered." : userDAO.getLastError();
+                JOptionPane.showMessageDialog(dlg, "Failed to create user. " + err, "Error", JOptionPane.ERROR_MESSAGE);
             }
         });
 
@@ -262,6 +268,11 @@ public class UserFrame extends JFrame {
         JButton btnSave = new JButton("Update User");
         UIStyle.styleButton(btnSave);
         btnSave.addActionListener(e -> {
+            if ("ADMIN".equalsIgnoreCase((String) cmbRole.getSelectedItem()) && !"ADMIN".equalsIgnoreCase(role) && userDAO.hasAdmin()) {
+                JOptionPane.showMessageDialog(dlg, "Only one administrator account is permitted in the system.\nCannot promote another user to Administrator.", "Validation Error", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
             Department dept = (Department) cmbDept.getSelectedItem();
             String newPass = new String(txtPass.getPassword()).trim();
 
@@ -280,7 +291,8 @@ public class UserFrame extends JFrame {
                 dlg.dispose();
                 loadData();
             } else {
-                JOptionPane.showMessageDialog(dlg, "Update failed.", "Error", JOptionPane.ERROR_MESSAGE);
+                String err = userDAO.getLastError().isEmpty() ? "Update failed." : userDAO.getLastError();
+                JOptionPane.showMessageDialog(dlg, err, "Error", JOptionPane.ERROR_MESSAGE);
             }
         });
 
@@ -300,6 +312,12 @@ public class UserFrame extends JFrame {
         }
         int userId = (Integer) tableModel.getValueAt(row, 0);
         String name = (String) tableModel.getValueAt(row, 1);
+        String role = (String) tableModel.getValueAt(row, 3);
+
+        if ("ADMIN".equalsIgnoreCase(role)) {
+            JOptionPane.showMessageDialog(this, "The primary administrator account cannot be deleted.", "Operation Prohibited", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
 
         int confirm = JOptionPane.showConfirmDialog(this,
             "Are you sure you want to delete user: " + name + " (ID: " + userId + ")?",

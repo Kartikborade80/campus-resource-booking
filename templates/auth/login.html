@@ -132,25 +132,27 @@
         Sign In to Portal &rarr;
       </button>
 
+      {% if not has_admin %}
       <button type="button" class="btn btn-secondary" onclick="openAdminModal()" style="width:100%; padding:10px; font-size:0.88rem; margin-top:10px; background:#eef2ff; color:#4338ca; border:1px solid #c7d2fe;">
         + Register New Admin Account
       </button>
+      {% endif %}
     </form>
 
     <div class="demo-roles-box">
       <h4>&#9889; Quick Demo Logins (Evaluation Mode)</h4>
       <div class="role-buttons-grid">
-        <button type="button" class="btn-demo-role" onclick="fillCredentials('admin@sanjivani.edu.in', 'admin123')">
-          &#128100; Admin (Dr. Deshmukh)
+        <button type="button" class="btn-demo-role" onclick="fillCredentials('admin@sanjivani.edu.in', 'Admin@123')">
+          &#128100; Admin (Kartik Borade)
         </button>
-        <button type="button" class="btn-demo-role" onclick="fillCredentials('amit.cse@sanjivani.edu.in', 'faculty123')">
-          &#128084; Faculty (Prof. Amit)
+        <button type="button" class="btn-demo-role" onclick="fillCredentials('anand.joshi@sanjivani.edu.in', 'Pass@123')">
+          &#128084; Faculty (Dr. Anand Joshi)
         </button>
-        <button type="button" class="btn-demo-role" onclick="fillCredentials('rohan.student@sanjivani.edu.in', 'student123')">
-          &#127891; Student (Rohan V.)
+        <button type="button" class="btn-demo-role" onclick="fillCredentials('rahul.student@sanjivani.edu.in', 'studentpass123')">
+          &#127891; Student (Rahul Sharma)
         </button>
-        <button type="button" class="btn-demo-role" onclick="fillCredentials('suresh.staff@sanjivani.edu.in', 'staff123')">
-          &#128295; Staff (Suresh S.)
+        <button type="button" class="btn-demo-role" onclick="fillCredentials('rajesh.patil@sanjivani.edu.in', 'Pass@123')">
+          &#128084; Faculty (Dr. Rajesh Patil)
         </button>
       </div>
     </div>

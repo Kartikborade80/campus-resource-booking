@@ -1,137 +1,590 @@
 {% extends 'base.html' %}
 
-{% block title %}Manage Bookings{% endblock %}
-{% block page_heading %}Campus Bookings &amp; Schedules{% endblock %}
-{% block page_subheading %}Database-driven reservation tracking &bull; Powered by <code>booking_details_view</code>{% endblock %}
+{% block title %}Manage Bookings - Pending & Approved Requests{% endblock %}
+{% block page_heading %}Campus Bookings: Labs & Classrooms Management{% endblock %}
+{% block page_subheading %}Review pending requests, manage approved reservations, and monitor campus venue schedules{% endblock %}
 
 {% block content %}
 
-<div class="filter-bar">
-  <form method="GET" action="{{ url_for('bookings.index') }}" style="display:flex; flex-wrap:wrap; gap:12px; width:100%; align-items:center;">
-    <input type="text" name="search" class="form-control" placeholder="Search applicant, resource, venue, purpose..." value="{{ search }}" style="flex:1; min-width:220px;">
-    
-    <select name="status" class="form-select" style="min-width:140px;">
-      <option value="">All Statuses</option>
-      <option value="Pending" {% if selected_status == 'Pending' %}selected{% endif %}>Pending</option>
-      <option value="Approved" {% if selected_status == 'Approved' %}selected{% endif %}>Approved</option>
-      <option value="Completed" {% if selected_status == 'Completed' %}selected{% endif %}>Completed</option>
-      <option value="Cancelled" {% if selected_status == 'Cancelled' %}selected{% endif %}>Cancelled</option>
-      <option value="Rejected" {% if selected_status == 'Rejected' %}selected{% endif %}>Rejected</option>
-    </select>
+<style>
+  /* Tab Bar Navigation */
+  .booking-nav-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 1px;
+    flex-wrap: wrap;
+  }
+  .booking-tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+  }
+  .booking-tab-btn:hover {
+    color: var(--primary);
+    background: rgba(79, 70, 229, 0.04);
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  }
+  .booking-tab-btn.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+    background: #ffffff;
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  }
+  .booking-tab-btn .tab-count {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border-radius: 12px;
+  }
+  .tab-count-pending {
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
+  }
+  .tab-count-approved {
+    background: #dcfce7;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+  }
+  .tab-count-all {
+    background: #e2e8f0;
+    color: #334155;
+  }
 
-    <input type="date" name="date" class="form-control" value="{{ selected_date }}" style="width:160px;">
+  /* Venue Type Badges */
+  .badge-lab {
+    background: #ede9fe;
+    color: #5b21b6;
+    border: 1px solid #ddd6fe;
+    font-size: 0.72rem;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+  .badge-classroom {
+    background: #e0f2fe;
+    color: #075985;
+    border: 1px solid #bae6fd;
+    font-size: 0.72rem;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+  .badge-asset {
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+    font-size: 0.72rem;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-weight: 600;
+  }
 
-    {% if current_user and current_user.role in ('Admin', 'Staff') %}
-    <select name="department_id" class="form-select" style="min-width:180px;">
-      <option value="">All Departments</option>
-      {% for d in departments %}
-      <option value="{{ d.department_id }}" {% if selected_dept|string == d.department_id|string %}selected{% endif %}>
-        {{ d.department_code }} - {{ d.department_name }}
-      </option>
-      {% endfor %}
-    </select>
-    {% endif %}
+  /* Section banners */
+  .section-banner-pending {
+    background: #fffbeb;
+    border-left: 4px solid #f59e0b;
+    border: 1px solid #fde68a;
+    border-left-width: 4px;
+    padding: 12px 18px;
+    border-radius: var(--radius-md);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .section-banner-approved {
+    background: #f0fdf4;
+    border-left: 4px solid #16a34a;
+    border: 1px solid #bbf7d0;
+    border-left-width: 4px;
+    padding: 12px 18px;
+    border-radius: var(--radius-md);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
 
-    <button type="submit" class="btn btn-primary btn-sm">&#128269; Filter</button>
-    <a href="{{ url_for('bookings.index') }}" class="btn btn-secondary btn-sm">Reset</a>
+  .btn-approve {
+    background-color: #16a34a !important;
+    color: #ffffff !important;
+    border: 1px solid #15803d !important;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .btn-approve:hover {
+    background-color: #15803d !important;
+    color: #ffffff !important;
+  }
+  .btn-reject {
+    background-color: #dc2626 !important;
+    color: #ffffff !important;
+    border: 1px solid #b91c1c !important;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .btn-reject:hover {
+    background-color: #b91c1c !important;
+    color: #ffffff !important;
+  }
+  .btn-complete-booking {
+    background-color: #2563eb !important;
+    color: #ffffff !important;
+    border: 1px solid #1d4ed8 !important;
+    font-weight: 600;
+  }
+  .btn-complete-booking:hover {
+    background-color: #1d4ed8 !important;
+    color: #ffffff !important;
+  }
+</style>
 
-    <a href="{{ url_for('bookings.new') }}" class="btn btn-success btn-sm" style="margin-left:auto;">
-      + New Booking Request
+<!-- Navigation Tabs for Separate Sections -->
+<div class="booking-nav-tabs">
+  <button type="button" class="booking-tab-btn {% if active_tab == 'pending' %}active{% endif %}" onclick="switchBookingTab('pending')">
+    <span>⏳ Pending Requests</span>
+    <span class="tab-count tab-count-pending">{{ pending_count }}</span>
+  </button>
+  <button type="button" class="booking-tab-btn {% if active_tab == 'approved' %}active{% endif %}" onclick="switchBookingTab('approved')">
+    <span>✔ Approved Requests</span>
+    <span class="tab-count tab-count-approved">{{ approved_count }}</span>
+  </button>
+  <button type="button" class="booking-tab-btn {% if active_tab == 'all' %}active{% endif %}" onclick="switchBookingTab('all')">
+    <span>📋 All Bookings History</span>
+    <span class="tab-count tab-count-all">{{ bookings|length }}</span>
+  </button>
+
+  <div style="margin-left: auto; display: flex; gap: 8px; align-items: center;">
+    <a href="{{ url_for('bookings.new') }}" class="btn btn-primary btn-sm" style="font-weight: 600;">
+      + Book Lab / Classroom
     </a>
-  </form>
+  </div>
 </div>
 
-
-<div class="card">
-  <div class="card-header">
-    <div class="card-title">Reservation Records ({{ bookings|length }} entries)</div>
+<!-- ========================================== -->
+<!-- 1. PENDING REQUESTS SECTION               -->
+<!-- ========================================== -->
+<div id="section-pending" class="booking-section" style="{% if active_tab != 'pending' %}display: none;{% endif %}">
+  
+  <div class="section-banner-pending">
+    <div>
+      <div style="font-weight: 700; color: #92400e; font-size: 0.95rem;">
+        ⏳ PENDING REVIEW QUEUE: {{ pending_count }} Reservation Requests Awaiting Authorization
+      </div>
+      <div style="color: #b45309; font-size: 0.82rem; margin-top: 2px;">
+        Review computer lab and classroom booking requests submitted by faculty and users. Accept/Approve to lock venue or Reject to decline.
+      </div>
+    </div>
+    {% if current_user and current_user.role == 'Admin' %}
+    <div>
+      <span class="badge" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a;">
+        &#9888; Administrator Action Required
+      </span>
+    </div>
+    {% endif %}
   </div>
-  <div class="card-body" style="padding:0;">
-    <div class="table-responsive">
-      <table class="custom-table">
-        <thead>
-          <tr>
-            <th>Ref #</th>
-            <th>Applicant</th>
-            <th>Resource &amp; Category</th>
-            <th>Venue / Room</th>
-            <th>Booking Schedule</th>
-            <th>Purpose</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for b in bookings %}
-          <tr>
-            <td><code>#{{ b.booking_id }}</code></td>
-            <td>
-              <div style="font-weight:600;">{{ b.booked_by }}</div>
-              <small style="color:var(--text-muted);">
-                {{ b.department_code }} &bull; <span class="badge role-{{ b.user_role|lower }}" style="padding:1px 6px;">{{ b.user_role }}</span>
-              </small>
-            </td>
-            <td>
-              <div style="font-weight:600;">{{ b.resource_name }}</div>
-              <small style="color:var(--text-secondary);">{{ b.resource_category }}</small>
-            </td>
-            <td>
-              {% if b.room_number %}
-                <strong>{{ b.room_number }}</strong>
-                <div><small style="color:var(--text-muted);">{{ b.building_name }}</small></div>
-              {% else %}
-                <span style="color:var(--text-muted); font-style:italic;">No room assigned</span>
-              {% endif %}
-            </td>
-            <td>
-              <div style="font-weight:600;">{{ b.booking_date }}</div>
-              <small style="color:var(--text-muted);">{{ b.slot_name }}</small>
-            </td>
-            <td style="max-width:220px;">
-              <div style="font-size:0.85rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="{{ b.purpose }}">
-                {{ b.purpose }}
-              </div>
-            </td>
-            <td>
-              <span class="badge badge-{{ b.booking_status|lower }}">{{ b.booking_status }}</span>
-            </td>
-            <td>
-              <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                
-                {% if current_user and current_user.role == 'Admin' %}
-                  {% if b.booking_status == 'Pending' %}
-                  <form method="POST" action="{{ url_for('bookings.approve', booking_id=b.booking_id) }}" style="display:inline;">
-                    <button type="submit" class="btn btn-success btn-sm" title="Approve Booking">&#10004; Approve</button>
+
+  <div class="card">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+      <div class="card-title">Pending Reservation Requests ({{ pending_count }})</div>
+      <small style="color: var(--text-muted);">Real-time live queue</small>
+    </div>
+    <div class="card-body" style="padding: 0;">
+      <div class="table-responsive">
+        <table class="custom-table">
+          <thead>
+            <tr>
+              <th style="width: 70px;">Ref #</th>
+              <th>Applicant &amp; Role</th>
+              <th>Target Resource</th>
+              <th>Venue / Venue Type</th>
+              <th>Date &amp; Slot</th>
+              <th>Purpose</th>
+              <th style="text-align: center;">Status</th>
+              <th style="text-align: right; min-width: 170px;">Administrative Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for b in pending_bookings %}
+            <tr>
+              <td><code>#{{ b.booking_id }}</code></td>
+              <td>
+                <div style="font-weight: 600;">{{ b.booked_by }}</div>
+                <small style="color: var(--text-muted);">
+                  {{ b.department_code }} &bull; <span class="badge role-{{ b.user_role|lower }}" style="padding: 1px 6px;">{{ b.user_role }}</span>
+                </small>
+              </td>
+              <td>
+                <div style="font-weight: 600; color: var(--text-primary);">{{ b.resource_name }}</div>
+                <small style="color: var(--text-secondary);">{{ b.resource_category }}</small>
+              </td>
+              <td>
+                {% if b.room_number %}
+                  <div style="font-weight: 600;">{{ b.room_number }}</div>
+                  <div><small style="color: var(--text-muted);">{{ b.building_name }}</small></div>
+                  {% if 'lab' in (b.room_number|lower) or 'lab' in (b.resource_name|lower) %}
+                    <span class="badge-lab">&#128187; Computer Lab</span>
+                  {% else %}
+                    <span class="badge-classroom">&#127979; Classroom</span>
+                  {% endif %}
+                {% else %}
+                  <span class="badge-asset">&#128230; Portable Resource</span>
+                {% endif %}
+              </td>
+              <td>
+                <div style="font-weight: 600;">{{ b.booking_date }}</div>
+                <small style="color: var(--text-muted);">{{ b.slot_name }}</small>
+              </td>
+              <td style="max-width: 220px;">
+                <div style="font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ b.purpose }}">
+                  {{ b.purpose }}
+                </div>
+              </td>
+              <td style="text-align: center;">
+                <span class="badge badge-pending" style="font-weight: 700;">⏳ PENDING</span>
+              </td>
+              <td style="text-align: right;">
+                <div style="display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap;">
+                  {% if current_user and current_user.role == 'Admin' %}
+                  <form method="POST" action="{{ url_for('bookings.approve', booking_id=b.booking_id) }}" style="display: inline;">
+                    <button type="submit" class="btn btn-sm btn-approve" title="Accept &amp; Approve Request" onclick="return confirm('Accept and Approve booking #{{ b.booking_id }} for {{ b.booked_by }}?');">
+                      &#10004; Accept / Approve
+                    </button>
                   </form>
-                  <form method="POST" action="{{ url_for('bookings.reject', booking_id=b.booking_id) }}" style="display:inline;">
-                    <button type="submit" class="btn btn-danger btn-sm" title="Reject Booking">&#10008; Reject</button>
-                  </form>
-                  {% elif b.booking_status == 'Approved' %}
-                  <form method="POST" action="{{ url_for('bookings.complete', booking_id=b.booking_id) }}" style="display:inline;">
-                    <button type="submit" class="btn btn-primary btn-sm" title="Mark Completed">&#127942; Complete</button>
+                  <form method="POST" action="{{ url_for('bookings.reject', booking_id=b.booking_id) }}" style="display: inline;">
+                    <button type="submit" class="btn btn-sm btn-reject" title="Reject Request" onclick="return confirm('Reject booking request #{{ b.booking_id }}?');">
+                      &#10008; Reject
+                    </button>
                   </form>
                   {% endif %}
-                {% endif %}
 
-                
-                {% if (current_user.role == 'Admin' or current_user.id == b.owner_user_id) and b.booking_status in ('Pending', 'Approved') %}
-                <form method="POST" action="{{ url_for('bookings.cancel', booking_id=b.booking_id) }}" onsubmit="return confirm('Cancel this reservation?');" style="display:inline;">
-                  <button type="submit" class="btn btn-secondary btn-sm" title="Cancel Booking">&#10006; Cancel</button>
-                </form>
-                {% endif %}
-              </div>
-            </td>
-          </tr>
-          {% else %}
-          <tr>
-            <td colspan="8" style="text-align:center; padding:32px; color:var(--text-muted);">
-              No bookings found matching the selected filters.
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+                  {% if (current_user.role == 'Admin' or current_user.id == b.owner_user_id) %}
+                  <form method="POST" action="{{ url_for('bookings.cancel', booking_id=b.booking_id) }}" onsubmit="return confirm('Withdraw / cancel this reservation request?');" style="display: inline;">
+                    <button type="submit" class="btn btn-secondary btn-sm" title="Cancel Request">&#10006; Cancel</button>
+                  </form>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="8" style="text-align: center; padding: 48px; color: var(--text-muted);">
+                <div style="font-size: 2.2rem; margin-bottom: 8px;">&#10004;</div>
+                <div style="font-weight: 600; font-size: 1rem; color: var(--text-primary);">No Pending Requests</div>
+                <p style="font-size: 0.85rem; margin-top: 4px;">All lab and classroom reservation requests have been processed.</p>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>
+
+<!-- ========================================== -->
+<!-- 2. APPROVED REQUESTS SECTION              -->
+<!-- ========================================== -->
+<div id="section-approved" class="booking-section" style="{% if active_tab != 'approved' %}display: none;{% endif %}">
+  
+  <div class="section-banner-approved">
+    <div>
+      <div style="font-weight: 700; color: #15803d; font-size: 0.95rem;">
+        ✔ APPROVED &amp; CONFIRMED RESERVATIONS: {{ approved_count }} Active Schedules
+      </div>
+      <div style="color: #166534; font-size: 0.82rem; margin-top: 2px;">
+        Classrooms and computer labs below have been officially authorized and allocated. Resources are locked for the scheduled slots.
+      </div>
+    </div>
+    <div>
+      <span class="badge" style="background:#dcfce7; color:#15803d; border:1px solid #bbf7d0;">
+        &#10004; Venues Reserved
+      </span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+      <div class="card-title">Approved Classroom &amp; Lab Schedules ({{ approved_count }})</div>
+      <small style="color: var(--text-muted);">Authorized campus reservations</small>
+    </div>
+    <div class="card-body" style="padding: 0;">
+      <div class="table-responsive">
+        <table class="custom-table">
+          <thead>
+            <tr>
+              <th style="width: 70px;">Ref #</th>
+              <th>Reserved By</th>
+              <th>Target Resource</th>
+              <th>Venue / Venue Type</th>
+              <th>Date &amp; Slot</th>
+              <th>Purpose</th>
+              <th style="text-align: center;">Status</th>
+              <th style="text-align: right; min-width: 160px;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for b in approved_bookings %}
+            <tr>
+              <td><code>#{{ b.booking_id }}</code></td>
+              <td>
+                <div style="font-weight: 600;">{{ b.booked_by }}</div>
+                <small style="color: var(--text-muted);">
+                  {{ b.department_code }} &bull; <span class="badge role-{{ b.user_role|lower }}" style="padding: 1px 6px;">{{ b.user_role }}</span>
+                </small>
+              </td>
+              <td>
+                <div style="font-weight: 600; color: var(--text-primary);">{{ b.resource_name }}</div>
+                <small style="color: var(--text-secondary);">{{ b.resource_category }}</small>
+              </td>
+              <td>
+                {% if b.room_number %}
+                  <div style="font-weight: 600;">{{ b.room_number }}</div>
+                  <div><small style="color: var(--text-muted);">{{ b.building_name }}</small></div>
+                  {% if 'lab' in (b.room_number|lower) or 'lab' in (b.resource_name|lower) %}
+                    <span class="badge-lab">&#128187; Computer Lab</span>
+                  {% else %}
+                    <span class="badge-classroom">&#127979; Classroom</span>
+                  {% endif %}
+                {% else %}
+                  <span class="badge-asset">&#128230; Portable Resource</span>
+                {% endif %}
+              </td>
+              <td>
+                <div style="font-weight: 600;">{{ b.booking_date }}</div>
+                <small style="color: var(--text-muted);">{{ b.slot_name }}</small>
+              </td>
+              <td style="max-width: 220px;">
+                <div style="font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ b.purpose }}">
+                  {{ b.purpose }}
+                </div>
+              </td>
+              <td style="text-align: center;">
+                <span class="badge badge-approved" style="font-weight: 700;">✔ APPROVED</span>
+              </td>
+              <td style="text-align: right;">
+                <div style="display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap;">
+                  {% if current_user and current_user.role in ('Admin', 'Staff') %}
+                  <form method="POST" action="{{ url_for('bookings.complete', booking_id=b.booking_id) }}" onsubmit="return confirm('Mark this booking as Completed? Venue will return to Available.');" style="display: inline;">
+                    <button type="submit" class="btn btn-sm btn-complete-booking" title="Mark Session Finished">&#9733; Complete</button>
+                  </form>
+                  {% endif %}
+
+                  {% if (current_user.role == 'Admin' or current_user.id == b.owner_user_id) %}
+                  <form method="POST" action="{{ url_for('bookings.cancel', booking_id=b.booking_id) }}" onsubmit="return confirm('Cancel this approved reservation? Venue will be released.');" style="display: inline;">
+                    <button type="submit" class="btn btn-secondary btn-sm" title="Cancel Booking">&#10006; Cancel</button>
+                  </form>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="8" style="text-align: center; padding: 48px; color: var(--text-muted);">
+                <div style="font-size: 2.2rem; margin-bottom: 8px;">&#128197;</div>
+                <div style="font-weight: 600; font-size: 1rem; color: var(--text-primary);">No Approved Bookings Found</div>
+                <p style="font-size: 0.85rem; margin-top: 4px;">There are no active approved bookings matching current criteria.</p>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- 3. ALL BOOKINGS & HISTORY SECTION         -->
+<!-- ========================================== -->
+<div id="section-all" class="booking-section" style="{% if active_tab != 'all' %}display: none;{% endif %}">
+  
+  <!-- Search & Filter Bar -->
+  <div class="filter-bar">
+    <form method="GET" action="{{ url_for('bookings.index') }}" style="display: flex; flex-wrap: wrap; gap: 12px; width: 100%; align-items: center;">
+      <input type="hidden" name="tab" value="all">
+      <input type="text" name="search" class="form-control" placeholder="Search applicant, resource, venue, purpose..." value="{{ search }}" style="flex: 1; min-width: 220px;">
+      
+      <select name="status" class="form-select" style="min-width: 140px;">
+        <option value="">All Statuses</option>
+        <option value="PENDING" {% if selected_status|upper == 'PENDING' %}selected{% endif %}>Pending</option>
+        <option value="APPROVED" {% if selected_status|upper == 'APPROVED' %}selected{% endif %}>Approved</option>
+        <option value="COMPLETED" {% if selected_status|upper == 'COMPLETED' %}selected{% endif %}>Completed</option>
+        <option value="CANCELLED" {% if selected_status|upper == 'CANCELLED' %}selected{% endif %}>Cancelled</option>
+        <option value="REJECTED" {% if selected_status|upper == 'REJECTED' %}selected{% endif %}>Rejected</option>
+      </select>
+
+      <input type="date" name="date" class="form-control" value="{{ selected_date }}" style="width: 160px;">
+
+      {% if current_user and current_user.role in ('Admin', 'Staff') %}
+      <select name="department_id" class="form-select" style="min-width: 180px;">
+        <option value="">All Departments</option>
+        {% for d in departments %}
+        <option value="{{ d.department_id }}" {% if selected_dept|string == d.department_id|string %}selected{% endif %}>
+          {{ d.department_code }} - {{ d.department_name }}
+        </option>
+        {% endfor %}
+      </select>
+      {% endif %}
+
+      <button type="submit" class="btn btn-primary btn-sm">&#128269; Filter</button>
+      <a href="{{ url_for('bookings.index', tab='all') }}" class="btn btn-secondary btn-sm">Reset</a>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">All Campus Booking Records ({{ bookings|length }} entries)</div>
+    </div>
+    <div class="card-body" style="padding: 0;">
+      <div class="table-responsive">
+        <table class="custom-table">
+          <thead>
+            <tr>
+              <th>Ref #</th>
+              <th>Applicant</th>
+              <th>Resource &amp; Category</th>
+              <th>Venue / Room</th>
+              <th>Booking Schedule</th>
+              <th>Purpose</th>
+              <th style="text-align: center;">Status</th>
+              <th style="text-align: right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for b in bookings %}
+            <tr>
+              <td><code>#{{ b.booking_id }}</code></td>
+              <td>
+                <div style="font-weight: 600;">{{ b.booked_by }}</div>
+                <small style="color: var(--text-muted);">
+                  {{ b.department_code }} &bull; <span class="badge role-{{ b.user_role|lower }}" style="padding: 1px 6px;">{{ b.user_role }}</span>
+                </small>
+              </td>
+              <td>
+                <div style="font-weight: 600;">{{ b.resource_name }}</div>
+                <small style="color: var(--text-secondary);">{{ b.resource_category }}</small>
+              </td>
+              <td>
+                {% if b.room_number %}
+                  <strong>{{ b.room_number }}</strong>
+                  <div><small style="color: var(--text-muted);">{{ b.building_name }}</small></div>
+                  {% if 'lab' in (b.room_number|lower) or 'lab' in (b.resource_name|lower) %}
+                    <span class="badge-lab">&#128187; Lab</span>
+                  {% else %}
+                    <span class="badge-classroom">&#127979; Classroom</span>
+                  {% endif %}
+                {% else %}
+                  <span style="color: var(--text-muted); font-style: italic;">No room assigned</span>
+                {% endif %}
+              </td>
+              <td>
+                <div style="font-weight: 600;">{{ b.booking_date }}</div>
+                <small style="color: var(--text-muted);">{{ b.slot_name }}</small>
+              </td>
+              <td style="max-width: 220px;">
+                <div style="font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ b.purpose }}">
+                  {{ b.purpose }}
+                </div>
+              </td>
+              <td style="text-align: center;">
+                {% set st = (b.booking_status|upper) %}
+                {% if st == 'PENDING' %}
+                  <span class="badge badge-pending">⏳ PENDING</span>
+                {% elif st == 'APPROVED' %}
+                  <span class="badge badge-approved">✔ APPROVED</span>
+                {% elif st == 'REJECTED' %}
+                  <span class="badge badge-rejected">✖ REJECTED</span>
+                {% elif st == 'COMPLETED' %}
+                  <span class="badge badge-completed">★ COMPLETED</span>
+                {% elif st == 'CANCELLED' %}
+                  <span class="badge badge-cancelled">⊘ CANCELLED</span>
+                {% else %}
+                  <span class="badge badge-inactive">{{ b.booking_status }}</span>
+                {% endif %}
+              </td>
+              <td style="text-align: right;">
+                <div style="display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap;">
+                  {% if current_user and current_user.role == 'Admin' %}
+                    {% if (b.booking_status|upper) == 'PENDING' %}
+                    <form method="POST" action="{{ url_for('bookings.approve', booking_id=b.booking_id) }}" style="display: inline;">
+                      <button type="submit" class="btn btn-sm btn-approve" title="Approve Booking">&#10004; Approve</button>
+                    </form>
+                    <form method="POST" action="{{ url_for('bookings.reject', booking_id=b.booking_id) }}" style="display: inline;">
+                      <button type="submit" class="btn btn-sm btn-reject" title="Reject Booking">&#10008; Reject</button>
+                    </form>
+                    {% elif (b.booking_status|upper) == 'APPROVED' %}
+                    <form method="POST" action="{{ url_for('bookings.complete', booking_id=b.booking_id) }}" style="display: inline;">
+                      <button type="submit" class="btn btn-sm btn-complete-booking" title="Mark Completed">&#9733; Complete</button>
+                    </form>
+                    {% endif %}
+                  {% endif %}
+
+                  {% if (current_user.role == 'Admin' or current_user.id == b.owner_user_id) and (b.booking_status|upper) in ('PENDING', 'APPROVED') %}
+                  <form method="POST" action="{{ url_for('bookings.cancel', booking_id=b.booking_id) }}" onsubmit="return confirm('Cancel this reservation?');" style="display: inline;">
+                    <button type="submit" class="btn btn-secondary btn-sm" title="Cancel Booking">&#10006; Cancel</button>
+                  </form>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="8" style="text-align: center; padding: 32px; color: var(--text-muted);">
+                No bookings found matching the selected filters.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function switchBookingTab(tabName) {
+    // Hide all sections
+    document.querySelectorAll('.booking-section').forEach(el => el.style.display = 'none');
+    // Remove active class from all tab buttons
+    document.querySelectorAll('.booking-tab-btn').forEach(btn => btn.classList.remove('active'));
+
+    // Show target section
+    const targetSection = document.getElementById('section-' + tabName);
+    if (targetSection) {
+      targetSection.style.display = 'block';
+    }
+
+    // Activate button
+    event.currentTarget.classList.add('active');
+
+    // Update URL without full reload
+    const url = new URL(window.location);
+    url.searchParams.set('tab', tabName);
+    window.history.replaceState({}, '', url);
+  }
+</script>
+
 {% endblock %}
